@@ -176,3 +176,12 @@ export async function chooseRiderDialog() {
   ui.notifications?.warn("chooseRiderDialog is not yet implemented.");
   return null;
 }
+
+/**
+ * Placeholder until the Crit Prompt dialog is implemented.
+ */
+export async function openCritPrompt() {
+  ui.notifications?.warn("openCritPrompt is not yet implemented.");
+  return null;
+}
+
