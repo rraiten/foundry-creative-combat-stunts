@@ -167,3 +167,12 @@ export async function openStuntDialog(actor){
     }
   }).render(true);
 }
+
+/**
+ * Placeholder until the Rider dialog is implemented.
+ * Prevents PF2e adapter from crashing on import.
+ */
+export async function chooseRiderDialog() {
+  ui.notifications?.warn("chooseRiderDialog is not yet implemented.");
+  return null;
+}
