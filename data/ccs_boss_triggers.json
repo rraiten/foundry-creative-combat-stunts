@@ -1,0 +1,148 @@
+[
+  {
+    "id": "douse-water",
+    "label": "Doused with Water",
+    "setup": "Buckets, skins, create water, or environmental splash to soak a fiery foe.",
+    "effect": {
+      "durationRounds": 1,
+      "apply": [
+        {
+          "type": "note",
+          "value": "Fire aura suppressed (CCS)"
+        },
+        {
+          "type": "condition",
+          "value": "slowed",
+          "amount": 1
+        }
+      ],
+      "critApply": [
+        {
+          "type": "condition",
+          "value": "stunned",
+          "amount": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "pinned-visor",
+    "label": "Pinned Visor",
+    "setup": "Climb/grapple or precise throw to wedge cloth/sand/object into the visor slit.",
+    "effect": {
+      "durationRounds": 1,
+      "apply": [
+        {
+          "type": "offGuard",
+          "value": true
+        },
+        {
+          "type": "condition",
+          "value": "dazzled"
+        }
+      ],
+      "critApply": [
+        {
+          "type": "condition",
+          "value": "blinded",
+          "amount": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "dual-distract",
+    "label": "Distract from Two Sides",
+    "setup": "Two allies harry from opposite flanks while a third taunts or feints.",
+    "effect": {
+      "durationRounds": 1,
+      "apply": [
+        {
+          "type": "removeReaction",
+          "value": "Attack of Opportunity"
+        },
+        {
+          "type": "offGuard",
+          "value": true
+        },
+        {
+          "type": "condition",
+          "value": "clumsy",
+          "amount": 1
+        }
+      ],
+      "critApply": [
+        {
+          "type": "condition",
+          "value": "frightened",
+          "amount": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "topple-pillar",
+    "label": "Topple the Pillar",
+    "setup": "Bring down a pillar/column or heavy structure segment onto the boss.",
+    "effect": {
+      "durationRounds": 1,
+      "apply": [
+        {
+          "type": "condition",
+          "value": "prone"
+        },
+        {
+          "type": "acMod",
+          "value": -4
+        }
+      ],
+      "critApply": [
+        {
+          "type": "condition",
+          "value": "immobilized",
+          "amount": 1
+        }
+      ]
+    }
+  },
+  {
+    "id": "burn-the-vines",
+    "label": "Burn the Vines",
+    "setup": "The foe is wrapped in living vines that harden into armor; fire burns them off.",
+    "effect": {
+      "durationRounds": 1,
+      "apply": [
+        {
+          "type": "note",
+          "value": "Plant armor burned off: physical resistances suppressed (CCS)"
+        }
+      ],
+      "critApply": []
+    }
+  },
+  {
+    "id": "shaken-faith",
+    "label": "Shaken Faith",
+    "setup": "A mad prophet\u2019s conviction wavers while frightened; exploit the doubt.",
+    "effect": {
+      "durationRounds": 1,
+      "apply": [
+        {
+          "type": "acMod",
+          "value": -4
+        },
+        {
+          "type": "saveMods",
+          "value": -4
+        }
+      ],
+      "critApply": [
+        {
+          "type": "condition",
+          "value": "stunned",
+          "amount": 1
+        }
+      ]
+    }
+  }
+]

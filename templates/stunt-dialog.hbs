@@ -1,0 +1,34 @@
+<div class="ccs-stunt">
+  <div><b>Target:</b> {{targetName}}</div>
+  <div class="form-group">
+    <label>Plausible & Tactical?</label>
+    <input type="checkbox" name="plausible" checked/>
+  </div>
+
+  <hr/>
+  <div class="form-group">
+    <label>Cool</label>
+    <select name="cool">
+      <option value="none">None</option>
+      <option value="light">Lightly Cool (+1 / Adv in 5e)</option>
+      <option value="full">Cool (+2 PF2e / Adv 5e)</option>
+    </select>
+  </div>
+  {{#if pf2eAdvOnce}}
+  <div class="form-group">
+    <label><input type="checkbox" name="advNow"/> PF2e: Use once-per-combat Advantage instead of +2</label>
+  </div>
+  {{/if}}
+
+  <hr/>
+  <div class="form-group">
+    <label><input type="checkbox" name="risk"/> Tactical Risk (Harder DC; success upgrades; failure setback)</label>
+  </div>
+
+  {{#if poolEnabled}}
+  <hr/>
+  <div class="form-group">
+    <label><input type="checkbox" name="spendPool" {{#if poolRemaining}}{{else}}disabled{{/if}}/> Spend Cinematic Pool (PF2e: +1 degree; 5e: miss→hit, hit→crit)</label>
+  </div>
+  {{/if}}
+</div>
