@@ -1,0 +1,38 @@
+{
+  "id": "creative-combat-stunts",
+  "title": "Creative Combat Stunts (PF2e & 5e)",
+  "description": "Fast, flavorful combat stunts with predeclare flow, dialog UI, and system adapters for PF2e and 5e.",
+  "version": "0.4.0",
+  "authors": [
+    {
+      "name": "rraiten",
+      "url": "https://github.com/rraiten"
+    }
+  ],
+  "url": "https://github.com/rraiten/foundry-creative-combat-stunts",
+  "license": "MIT",
+  "bugs": "https://github.com/rraiten/foundry-creative-combat-stunts/issues",
+  "readme": "https://raw.githubusercontent.com/rraiten/foundry-creative-combat-stunts/main/README.md",
+  "changelog": "https://raw.githubusercontent.com/rraiten/foundry-creative-combat-stunts/main/CHANGELOG.md",
+  "compatibility": {
+    "minimum": "12",
+    "verified": "13"
+  },
+  "system": [
+    "pf2e",
+    "dnd5e"
+  ],
+  "esmodules": [
+    "scripts/main.js",
+    "scripts/core.js",
+    "scripts/ui.js",
+    "scripts/adapters/pf2e.js",
+    "scripts/adapters/dnd5e.js"
+  ],
+  "styles": [
+    "styles/ccf.css"
+  ],
+  "packs": [],
+  "manifest": "https://raw.githubusercontent.com/rraiten/foundry-creative-combat-stunts/main/module.json",
+  "download": "https://github.com/rraiten/foundry-creative-combat-stunts/releases/download/v0.4.0/foundry-creative-combat-stunts-v0.4.0.zip"
+}
