@@ -88,4 +88,18 @@ export class DnD5eAdapter {
       return { selfEffect: "5e: Prone or lose bonus action (GM choose)" };
     }
   }
+
+  // Map Flavor into 5e roll context (your roll() checks ctx.rollTwice and ctx.coolBonus)
+  async applyPreRollAdjustments(ctx, { coolTier /* chooseAdvNow unused in 5e */ }) {
+    // “Nice or Repeating” → Advantage
+    // “So Cool” → Advantage +2
+    if (coolTier === 1) {
+      ctx.rollTwice = "keep-higher";
+    } else if (coolTier === 2) {
+      ctx.rollTwice = "keep-higher";
+      ctx.coolBonus = (ctx.coolBonus ?? 0) + 2;
+    }
+    return ctx;
+}
+
 }
