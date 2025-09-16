@@ -154,4 +154,35 @@ export class PF2eAdapter {
       console.warn("CCS: Crit deck draw failed", e);
     }
   }
+
+  // Map Flavor + Advantage into PF2e roll context
+  async applyPreRollAdjustments(ctx, { coolTier, chooseAdvNow }) {
+    // Flavor → circumstance bonus
+    ctx.coolBonus = 0;
+    if (coolTier === 1) ctx.coolBonus = 1;          // Nice or Repeating
+    else if (coolTier === 2) ctx.coolBonus = 2;     // So Cool
+
+    // PF2e “advantage” (roll twice keep higher) only during combat
+    if (chooseAdvNow) {
+      if (game.combat) {
+        ctx.rollTwice = "keep-higher";
+      } else {
+        ui.notifications.warn("Advantage is only available during an active combat.");
+      }
+    }
+    return ctx;
+  }
+
+
+  // (Optional simple mapping) Cinematic pool can bump degree by +1, capped at crit
+  async applyCinematicUpgrade(degree, ctx, { poolSpent }) {
+    if (!poolSpent) return degree;
+    return Math.min(3, degree + 1);
+  }
+
+  // PF2e tactical upgrade is handled in applyOutcome; leave degree unchanged here
+  async applyTacticalUpgrade(degree, ctx) {
+    return degree;
+  }
+
 }
