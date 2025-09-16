@@ -1,23 +1,38 @@
 export function registerUI(){
   Hooks.on("renderActorSheet", (app, html, data) => {
-    if (!app.actor.isOwner) return;
-    const btn = $(`<a class="ccs-stunt-button"><i class="fas fa-theater-masks"></i> Stunt</a>`);
-    btn.on("click", () => openStuntDialog(app.actor));
-    html.closest('.app').find('.ccs-stunt-button').remove();
-    html.find(".window-title").after(btn);
+    if (!app.actor?.isOwner) return;
 
-    if (game.user.isGM && app.actor.type === "npc" && game.system.id === "pf2e") {
-      const wbtn = $(`<a class="ccs-weakness-button"><i class="fas fa-bolt"></i> Creative Hooks</a>`);
-      wbtn.on("click", () => openWeaknessEditor(app.actor));
-      html.find(".window-title").after(wbtn);
+    // Remove old button if it exists
+    html.closest('.app').find(".ccs-stunt-button").remove();
+
+    const btn = $(`<a class="ccs-stunt-button" title="Stunt">
+                   <i class="fas fa-theater-masks"></i> Stunt
+                   </a>`);
+    btn.click(() => openStuntDialog(app.actor));
+
+    const $app = app.element ?? html.closest('.app');
+    const $headerActions = $app.find('.window-header .header-actions').first();
+    const $headerTitle   = $app.find('.window-header .title, .window-title').first();
+
+    if ($headerActions.length) {
+      $headerActions.prepend(btn);
+    } else if ($headerTitle.length) {
+      $headerTitle.after(btn);
+    } else {
+      html.prepend(btn); // fallback
     }
   });
 
-  Hooks.on("renderCombatTracker", (app, html, data) => {
-    if (!game.user.isGM) return;
-    const controls = $(`<div class="ccs-ct-controls"><a class="ccs-toggle"><i class="fas fa-film"></i> Cinematic Pool</a></div>`);
-    controls.find(".ccs-toggle").on("click", () => openPoolConfig());
-    html.find(".directory-footer").append(controls);
+  Hooks.on("renderCombatTracker", (app, element, data) => {
+    const $html = $(element);
+    $html.find(".ccs-pool-button").remove();
+
+    const btn = $(`<button type="button" class="ccs-pool-button">
+                   <i class="fas fa-bolt"></i> Cinematic Pool
+                   </button>`);
+    btn.click(() => openPoolConfig());
+
+    $html.find(".directory-footer").append(btn);
   });
 }
 
