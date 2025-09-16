@@ -36,6 +36,7 @@ export function registerUI(){
   });
 }
 
+
 async function openPoolConfig(){
   const combat = game.combat;
   if (!combat) return ui.notifications?.warn("No active combat.");
@@ -145,6 +146,23 @@ async function openWeaknessEditor(actor){
   dlg.render(true);
 }
 
+const isPF2 = game.system.id === "pf2e";
+const flavorOptions = isPF2
+  ? [
+      { value: 0, label: "Plain" },
+      { value: 1, label: "Nice or Repeating (+1 circumstance)" },
+      { value: 2, label: "So Cool (+2 circumstance)" },
+    ]
+  : [
+      { value: 0, label: "Plain" },
+      { value: 1, label: "Nice or Repeating (Advantage)" },
+      { value: 2, label: "So Cool (Advantage +2)" },
+    ];
+
+// …render <select> from flavorOptions
+// and ensure you store as a number:
+options.coolTier = Number(select.value);
+
 export async function openStuntDialog(actor){
   const sys = game.system.id;
   const targets = Array.from(game.user.targets);
@@ -199,4 +217,3 @@ export async function openCritPrompt() {
   ui.notifications?.warn("openCritPrompt is not yet implemented.");
   return null;
 }
-
