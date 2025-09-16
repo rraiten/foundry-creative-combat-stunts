@@ -34,8 +34,41 @@ export function registerUI(){
 
     $html.find(".directory-footer").append(btn);
   });
+
+  Hooks.on("renderTokenHUD", (app, html) => {
+    const token = app?.object;
+    const tokenDoc = token?.document;
+    if (!token || !tokenDoc) return;
+
+    const btn = $(
+      `<div class="control-icon ccs" title="Creative Combat Stunts">
+        <i class="fas fa-bolt"></i>
+      </div>`
+    );
+    btn.on("click", () => openStuntDialog({ token }));
+    html.find(".col.right").append(btn);
+  });
+
+  Hooks.once("ready", () => {
+    const mod = game.modules.get("foundry-creative-combat-stunts");
+    if (mod) mod.api = { openStuntDialog };
+
+    flavorOptions = isPF2()
+    ? [
+        { value: 0, label: "Plain" },
+        { value: 1, label: "Nice or Repeating (+1 circumstance)" },
+        { value: 2, label: "So Cool (+2 circumstance)" },
+      ]
+    : [
+        { value: 0, label: "Plain" },
+        { value: 1, label: "Nice or Repeating (Advantage)" },
+        { value: 2, label: "So Cool (Advantage +2)" },
+      ];
+  });
 }
 
+const isPF2 = () => (game?.system?.id ?? game.systemId ?? "") === "pf2e";
+let flavorOptions = [];
 
 async function openPoolConfig(){
   const combat = game.combat;
@@ -146,24 +179,16 @@ async function openWeaknessEditor(actor){
   dlg.render(true);
 }
 
-const isPF2 = game.system.id === "pf2e";
-const flavorOptions = isPF2
-  ? [
-      { value: 0, label: "Plain" },
-      { value: 1, label: "Nice or Repeating (+1 circumstance)" },
-      { value: 2, label: "So Cool (+2 circumstance)" },
-    ]
-  : [
-      { value: 0, label: "Plain" },
-      { value: 1, label: "Nice or Repeating (Advantage)" },
-      { value: 2, label: "So Cool (Advantage +2)" },
-    ];
 
 // …render <select> from flavorOptions
 // and ensure you store as a number:
 options.coolTier = Number(select.value);
 
 export async function openStuntDialog(actor){
+  token ??= canvas?.tokens?.controlled?.[0] ?? null;
+  actor ??= token?.actor ?? (game.user?.character ? game.actors.get(game.user.character) : null);
+  if (!actor) return ui.notifications.warn("Select a token or set a player character, then try again.");
+
   const sys = game.system.id;
   const targets = Array.from(game.user.targets);
   const target = targets[0]?.actor || null;
