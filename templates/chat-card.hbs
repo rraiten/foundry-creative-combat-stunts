@@ -16,4 +16,10 @@
   {{#if applied}}
     <p><i>Applied:</i> {{#if applied.targetEffect}}{{applied.targetEffect}}{{/if}}{{#if applied.selfEffect}}{{applied.selfEffect}}{{/if}}</p>
   {{/if}}
+  {{#if showCritControls}}
+    <div class="ccs-crit-controls" style="margin-top:6px;">
+      <button type="button" class="ccs-crit-draw" data-fail="{{critIsFailure}}">🎴 Draw Crit Card</button>
+    </div>
+  {{/if}}
+
 </div>

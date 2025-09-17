@@ -227,15 +227,29 @@ export class PF2eAdapter {
     }
   }
 
-  async applyCondition(actor, slug, value=null){
+  async applyCondition(actor, slug, value = null) {
     try {
       const cm = game.pf2e?.ConditionManager;
-      if (!cm) throw new Error("PF2e ConditionManager not available");
-      if (value != null) {
-        await cm.addCondition(slug, actor, { value });
-      } else {
-        await cm.addCondition(slug, actor);
+
+      // Newer API (preferred)
+      if (cm?.addCondition) {
+        await cm.addCondition(slug, actor, value != null ? { value } : undefined);
+        return;
       }
+      // Older APIs on the actor
+      if (typeof actor?.increaseCondition === "function") {
+        await actor.increaseCondition(slug, value != null ? { value } : undefined);
+        return;
+      }
+      if (typeof actor?.toggleCondition === "function") {
+        await actor.toggleCondition(slug, { active: true, value: value ?? undefined });
+        return;
+      }
+
+      // Fallback: create a lightweight effect so play can continue
+      await game.ccf.effects.applyEffectItem(actor, `CCS: ${slug}`, 1, [
+        { key: "Note", selector: "all", text: `${slug} (CCS fallback)`, title: "CCS" },
+      ]);
     } catch (e) {
       console.warn("CCS: Failed to apply condition", slug, e);
       ui.notifications?.warn(`CCS: Could not apply condition ${slug}.`);

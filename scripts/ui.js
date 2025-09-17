@@ -65,6 +65,23 @@ export function registerUI() {
     (col.length ? col : html).append(btn);
   });
 
+  Hooks.on("renderChatMessage", (_msg, html, data) => {
+    const btn = html.find(".ccs-crit-draw");
+    if (!btn.length) return;
+    btn.on("click", async (ev) => {
+      const isFailure = $(ev.currentTarget).data("fail") ? true : false;
+      try {
+        const deckAPI = game.pf2e?.criticalDecks ?? game.pf2e?.criticalDeck;
+        if (deckAPI?.draw) await deckAPI.draw({ type: "attack", isFailure });
+        else ui.notifications?.info("No PF2e crit deck API detected.");
+      } catch (e) {
+        console.error("CCS: Crit deck draw failed", e);
+        ui.notifications?.error("Failed to draw crit card.");
+      }
+    });
+  });
+
+
 
   // Expose API after ready
   Hooks.once("ready", () => {
@@ -300,7 +317,7 @@ function getSkillChoices(actor, sysId) {
 
 export async function chooseRiderDialog(kind = "success") {
   return new Promise((resolve) => {
-    new Dialog({
+    openSimpleDialog({
       title: `Choose Rider (${kind})`,
       content: `<p>Select a rider or cancel to use the default.</p>
         <input type="text" name="rider" placeholder="e.g., prone, frightened:1, drop-item" style="width:100%"/>`,
@@ -316,7 +333,7 @@ export async function chooseRiderDialog(kind = "success") {
 
 export async function openCritPrompt({ isFailure = false } = {}) {
   return new Promise((resolve) => {
-    new Dialog({
+    openSimpleDialog({
       title: isFailure ? "Critical Failure" : "Critical Success",
       content: `<p>Pick how to resolve the critical.</p>`,
       buttons: {
@@ -328,4 +345,20 @@ export async function openCritPrompt({ isFailure = false } = {}) {
     }).render(true);
   });
 }
+
+function openSimpleDialog({ title, content, buttons, defaultId = "ok" }) {
+  const D2 = foundry?.applications?.api?.DialogV2;
+  if (D2) {
+    const dlg = new D2({ window: { title }, content, buttons, default: defaultId });
+    dlg.render(true);
+    return dlg;
+  }
+  // Fallback to V1
+  return new Dialog({
+    title, content,
+    buttons: Object.fromEntries(Object.entries(buttons).map(([id, b]) => [id, { label: b.label, callback: b.action }])),
+    default: defaultId
+  }).render(true);
+}
+
 

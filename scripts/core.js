@@ -18,7 +18,13 @@ export class CCF {
 
   async rollStunt({actor, target, options}){
     let { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId } = options;
-    if (!plausible) ui.notifications?.warn("Stunt is not plausible; resolving as a normal roll.");
+
+    const tierNum = typeof coolTier === "string" ? (coolTier === "full" ? 2 : coolTier === "light" ? 1 : 0)
+      : Number(coolTier ?? 0);
+
+    if (!plausible && tierNum === 0) {
+      ui.notifications?.warn("Stunt isn’t plausible or flavorful; resolving as a normal roll.");
+    }
 
     // Once-per-combat Advantage gate (PF2e only; harmless on 5e where UI hides)
     let advUsed = false;
@@ -49,6 +55,12 @@ export class CCF {
     const ctx = await this.adapter.buildContext({actor, target, options});
     ctx.chooseAdvNow = chooseAdvNow;
     ctx.tacticalRisk = !!tacticalRisk;  // available both in ctx and as argument
+
+    // Resolve triggerId (if provided) into actual trigger object from target
+    if (triggerId && target) {
+      const triggers = target.getFlag("creative-combat-stunts", "weaknessTriggers") || [];
+      ctx.trigger = triggers.find(t => t.id === triggerId) || null;
+    }
 
     // Let adapter map Cool/Tactical to native mechanics
     await this.adapter.applyPreRollAdjustments(ctx, {coolTier, plausible, chooseAdvNow, tacticalRisk});
@@ -87,6 +99,8 @@ export class CCF {
       tacticalRisk: !!ctx.tacticalRisk, applied,
       spentPool: poolSpent ? true : false,
       triggerLabel: ctx.trigger?.label || null,
+      showCritControls: isCrit && !!ctx.tacticalRisk,
+      critIsFailure: critFail,
       logExtras: extra.join(" • ")
     });
     ChatMessage.create({speaker: ChatMessage.getSpeaker({actor}), content});
