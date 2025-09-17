@@ -58,10 +58,8 @@ export class PF2eAdapter {
   }
 
   pickStatistic(actor, rollKind = "skill", rollKey = "acr"){
-    if (rollKind === "perception") {
-      return actor?.perception ?? null;
-    }
-    // skill
+    if (rollKind !== "skill") return null; // (future sources can be added here)
+    // skill - Try both locations PF2e has used
     const skills = actor?.skills ?? actor?.system?.skills ?? {};
     const chosen = skills?.[rollKey] ?? skills?.acr ?? null;
     // Return a roll-capable object if possible (some PF2e versions use .check.roll)

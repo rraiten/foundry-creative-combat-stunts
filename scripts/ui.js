@@ -143,6 +143,8 @@ export async function openStuntDialog({ token, actor } = {}) {
             const q = (sel) => root.querySelector(sel);
             const coolStr  = (q('[name="cool"]')?.value || "none");
             const coolTier = coolStr === "full" ? 2 : coolStr === "light" ? 1 : 0;
+            const rollKind = (q('[name="rollKind"]')?.value || "skill").toLowerCase();
+            const rollKey  = (q('[name="rollKey"]')?.value  || "acr").toLowerCase();
             const tacticalRisk = q('[name="risk"]')?.checked ?? false;
             const plausible    = q('[name="plausible"]')?.checked ?? false;
             let chooseAdvNow   = q('[name="advNow"]')?.checked ?? false;
@@ -151,7 +153,7 @@ export async function openStuntDialog({ token, actor } = {}) {
             const triggerId    = q('[name="trigger"]')?.value || null;
             game.ccf.rollStunt({
               actor, target,
-              options: { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId }
+              options: { rollKind, rollKey, coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId }
             });
             return "roll"; 
           }
@@ -193,6 +195,8 @@ export async function openStuntDialog({ token, actor } = {}) {
         callback: (html) => {
           const coolStr  = (html.find('[name="cool"]').val() || "none");
           const coolTier = coolStr === "full" ? 2 : coolStr === "light" ? 1 : 0;
+          const rollKind = (html.find('[name="rollKind"]').val() || "skill").toLowerCase();
+          const rollKey  = (html.find('[name="rollKey"]').val()  || "acr").toLowerCase();
 
           const tacticalRisk = html.find('[name="risk"]').is(":checked");
           const plausible    = html.find('[name="plausible"]').is(":checked");
@@ -205,7 +209,7 @@ export async function openStuntDialog({ token, actor } = {}) {
           game.ccf.rollStunt({
             actor,
             target,
-            options: { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId }
+            options: { rollKind, rollKey, coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId }
           });
         }
       },
