@@ -65,10 +65,33 @@ export class PF2eAdapter {
     return { total: r?.total ?? 0, formula: r?.formula ?? "d20", roll: r };
   }
 
-  async degreeOfSuccess(result, ctx){
-    const dos = game.pf2e.Check.degreeOfSuccess(result.total, ctx.dc, {modifier:0});
-    return dos; // 0 CF,1 F,2 S,3 CS
+  async degreeOfSuccess(result, ctx) {
+    if (!result) return null;
+
+    const dc = Number(ctx?.dc ?? 20);
+    const total = Number(result?.total ?? 0);
+
+    // base degree by ±10 rule
+    let degree;
+    if (!Number.isFinite(dc)) return null;
+    if (total >= dc + 10) degree = 3;
+    else if (total >= dc) degree = 2;
+    else if (total <= dc - 10) degree = 0;
+    else degree = 1;
+
+    // find the d20 and apply nat 20/1 shift
+    const nat = (() => {
+      const d20 = result?.roll?.dice?.find?.(d => d?.faces === 20);
+      const val = d20?.results?.[0]?.result;
+      return Number.isFinite(val) ? val : null;
+    })();
+
+    if (nat === 20) degree = Math.min(3, degree + 1);
+    if (nat === 1)  degree = Math.max(0, degree - 1);
+
+    return degree;
   }
+
 
   async applyOutcome({actor, target, ctx, degree, tacticalRisk}){
     const isCrit = (degree === 0 || degree === 3) && tacticalRisk;
