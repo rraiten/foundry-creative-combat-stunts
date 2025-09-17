@@ -108,26 +108,77 @@ export async function openStuntDialog({ token, actor } = {}) {
     ? (target?.getFlag("creative-combat-stunts", "weaknessTriggers") ?? [])
     : [];
 
-  // Build skill choices dynamically from the actor
-  const skills = getSkillChoices(actor, sys);
-
   const content = await foundry.applications.handlebars.renderTemplate(
     "modules/creative-combat-stunts/templates/stunt-dialog.hbs",
     {
       actor,
+      isPF2: sys === "pf2e",
       targetName: target?.name ?? "(none)",
-      isPF2: (sys === "pf2e"),
+      pf2eAdvOnce,
       poolEnabled: !!pool?.enabled,
       poolRemaining: pool?.remaining ?? 0,
       triggers,
-      rollSources: [
-        { value: "skill", label: "Skill" },
-      ],
-      skills,
       flavorOptions: getFlavorOptions(),
     }
   );
 
+  const D2 = foundry?.applications?.api?.DialogV2;
+
+  if (D2) {
+    let dlg; // so callbacks can find the element
+    const buttons = [
+      {
+        id: "roll",
+        label: "Roll",
+        callback: () => {
+          const root = dlg.element;
+          const $ = (sel) => root.querySelector(sel);
+
+          const coolStr  = ($('[name="cool"]')?.value || "none");
+          const coolTier = coolStr === "full" ? 2 : coolStr === "light" ? 1 : 0;
+
+          const tacticalRisk = $('[name="risk"]')?.checked ?? false;
+          const plausible    = $('[name="plausible"]')?.checked ?? false;
+
+          let chooseAdvNow   = $('[name="advNow"]')?.checked ?? false;
+          if (coolTier < 2) chooseAdvNow = false;
+
+          const spendPoolNow = $('[name="spendPool"]')?.checked ?? false;
+          const triggerId    = $('[name="trigger"]')?.value || null;
+
+          game.ccf.rollStunt({
+            actor,
+            target,
+            options: { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId }
+          });
+        }
+      },
+      { id: "cancel", label: "Cancel", callback: () => {} }
+    ];
+
+    dlg = new D2({
+      window: { title: "Creative Stunt" },
+      content,
+      buttons,
+      defaultId: "roll"
+    });
+
+    // After render: wire “So Cool” → show PF2 advantage row
+    dlg.on("render", () => {
+      const root = dlg.element;
+      const advRow = root.querySelector("#ccs-adv-row");
+      const cool   = root.querySelector('[name="cool"]');
+      if (!advRow || !cool) return;
+      const update = () => { advRow.style.display = (cool.value || "") === "full" ? "" : "none"; };
+      cool.addEventListener("change", update);
+      update(); // initial
+    });
+
+    dlg.render(true);
+    return;
+  }
+
+  // Fallback to V1 Dialog (keeps working on older cores)
   new Dialog({
     title: "Creative Stunt",
     content,
@@ -135,41 +186,33 @@ export async function openStuntDialog({ token, actor } = {}) {
       roll: {
         label: "Roll",
         callback: (html) => {
-          const coolStr = (html.find('[name="cool"]').val() || "none"); // "none" | "light" | "full"
-          const coolTier = (coolStr === "full" ? 2 : coolStr === "light" ? 1 : 0); // number 0/1/2
+          const coolStr  = (html.find('[name="cool"]').val() || "none");
+          const coolTier = coolStr === "full" ? 2 : coolStr === "light" ? 1 : 0;
+
           const tacticalRisk = html.find('[name="risk"]').is(":checked");
-          const plausible = html.find('[name="plausible"]').is(":checked");
-          
-          // PF2 checkbox is visible only when “full”; if user somehow toggled it and then changed away, ignore it.
-          let chooseAdvNow = html.find('[name="advNow"]').is(":checked");
-          if (coolTier < 2) chooseAdvNow = false;  // only valid on “So Cool”
+          const plausible    = html.find('[name="plausible"]').is(":checked");
+          let chooseAdvNow   = html.find('[name="advNow"]').is(":checked");
+          if (coolTier < 2) chooseAdvNow = false;
 
           const spendPoolNow = html.find('[name="spendPool"]').is(":checked");
-          const triggerId = html.find('[name="trigger"]').val() || null;
-
-          const rollKind = (html.find('[name="rollKind"]').val() || "skill").toLowerCase();
-          const rollKey  = html.find('[name="rollKey"]').val() || null;   // only used when kind=skill
-          const dcRaw    = html.find('[name="dcOverride"]').val();
-          const dcOverride = dcRaw === "" ? null : Number(dcRaw);
+          const triggerId    = html.find('[name="trigger"]').val() || null;
 
           game.ccf.rollStunt({
             actor,
             target,
-            options: { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId, rollKind, rollKey, dcOverride },
+            options: { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId }
           });
-        },
+        }
       },
-      cancel: { label: "Cancel" },
+      cancel: { label: "Cancel" }
     },
     default: "roll",
     render: (html) => {
-      // PF2-only: show advantage swap ONLY when cool tier == 2
-      const $row = html.find("#ccs-adv-row");
-      if (!$row.length) return;
-      
-      const update = () => { $row.toggle((html.find('[name="cool"]').val() || "") === "full"); };
+      const row = html.find("#ccs-adv-row");
+      if (!row.length) return;
+      const update = () => row.toggle((html.find('[name="cool"]').val() || "") === "full");
       html.find('[name="cool"]').on("change", update);
-      update(); // initial
+      update();
     }
   }).render(true);
 }
