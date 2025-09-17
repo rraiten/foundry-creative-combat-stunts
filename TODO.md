@@ -20,3 +20,6 @@
 - [ ] **Cinematic Pool polish**
   - Improve visibility & usability beyond combat tracker button.
   - Add clearer feedback when tokens are spent.
+
+## C. Rules tighten
+- [ ] **stunt should take an action or 2**
