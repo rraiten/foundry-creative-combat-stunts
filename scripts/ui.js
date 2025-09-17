@@ -65,19 +65,35 @@ export function registerUI() {
     (col.length ? col : html).append(btn);
   });
 
-  Hooks.on("renderChatMessage", (_msg, html, data) => {
-    const btn = html.find(".ccs-crit-draw");
-    if (!btn.length) return;
-    btn.on("click", async (ev) => {
-      const isFailure = $(ev.currentTarget).data("fail") ? true : false;
-      try {
-        const deckAPI = game.pf2e?.criticalDecks ?? game.pf2e?.criticalDeck;
-        if (deckAPI?.draw) await deckAPI.draw({ type: "attack", isFailure });
-        else ui.notifications?.info("No PF2e crit deck API detected.");
-      } catch (e) {
-        console.error("CCS: Crit deck draw failed", e);
-        ui.notifications?.error("Failed to draw crit card.");
-      }
+  Hooks.on("renderChatMessage", (_msg, html) => {
+    // Support jQuery or raw element
+    const root = html instanceof jQuery ? html[0] : html;
+    root.querySelectorAll(".ccs-crit-draw").forEach(btn => {
+      btn.addEventListener("click", async (ev) => {
+        const isFailure = ev.currentTarget?.dataset?.fail === "true";
+        try {
+          const decks = game.pf2e?.criticalDecks ?? game.pf2e?.criticalDeck ?? null;
+          if (!decks) return ui.notifications?.info("PF2e crit deck API not detected.");
+
+          // Try common signatures in order
+          let ok = false;
+          if (typeof decks.draw === "function") {
+            try { await decks.draw({ type: "attack", isFailure }); ok = true; } catch {}
+            if (!ok) try { await decks.draw(isFailure ? "criticalFailure" : "criticalSuccess"); ok = true; } catch {}
+          }
+          if (!ok && typeof decks.drawCard === "function") {
+            try { await decks.drawCard({ type: "attack", isFailure }); ok = true; } catch {}
+          }
+          if (!ok && typeof game.pf2e?.drawCriticalCard === "function") {
+            try { await game.pf2e.drawCriticalCard("attack", isFailure ? "criticalFailure" : "criticalSuccess"); ok = true; } catch {}
+          }
+
+          if (!ok) ui.notifications?.warn("Could not draw a crit card (no compatible API).");
+        } catch (e) {
+          console.error("CCS: Crit deck draw failed", e);
+          ui.notifications?.error("Failed to draw crit card.");
+        }
+      }, { once: true }); // avoid duplicate bindings on re-render
     });
   });
 

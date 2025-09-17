@@ -155,8 +155,8 @@ export class PF2eAdapter {
           await this.applyConfiguredEffect(target, sel, true);
           return { targetEffect: sel };
         } else {
-          await this.applyCondition(target, "flat-footed", 1);
-          return { targetEffect: "flat-footed:1 (default)" };
+          await this.applyCondition(target, "off-guard");
+          return { targetEffect: "off-guard (default)" };
         }
       }
     } else {
@@ -227,13 +227,23 @@ export class PF2eAdapter {
 
   async applyCondition(actor, slug, value = null) {
     try {
+      let s = String(slug || "").toLowerCase();
+      const valuedSet = new Set(["frightened","enfeebled","stupefied","doomed","drained","clumsy","sickened","wounded"]);
+      const isValued = value != null || valuedSet.has(s);
+
+      if (!isValued) {
+        ui.notifications?.warn(`CCS: Could not apply condition ${slug}.`);
+        return;
+      }
+      
       const cm = game.pf2e?.ConditionManager;
 
       // Newer API (preferred)
       if (cm?.addCondition) {
-        await cm.addCondition(slug, actor, value != null ? { value } : undefined);
+        await cm.addCondition(slug, actor, { value });
         return;
       }
+      
       // Older APIs on the actor
       if (typeof actor?.increaseCondition === "function") {
         await actor.increaseCondition(slug, value != null ? { value } : undefined);
