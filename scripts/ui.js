@@ -133,11 +133,11 @@ export async function openStuntDialog({ token, actor } = {}) {
     dlg = openSimpleDialogV2({
       title: "Creative Stunt",
       content,
-      defaultId: "roll",
       buttons: [
         {
-          id: "roll",
+          action: "roll",
           label: "Roll",
+          default: true,
           callback: () => {
             const root = dlg.element;
             const q = (sel) => root.querySelector(sel);
@@ -153,10 +153,12 @@ export async function openStuntDialog({ token, actor } = {}) {
               actor, target,
               options: { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId }
             });
+            return "roll"; 
           }
         },
-        { id: "cancel", label: "Cancel", callback: () => {} },
+        { action: "cancel", label: "Cancel" },
       ],
+      submit: (_result) => {},
     });
 
     // Robustly wire the PF2 "Use advantage..." row
@@ -177,7 +179,7 @@ export async function openStuntDialog({ token, actor } = {}) {
       cool.addEventListener("change", update);
       update();
     } catch (_) { /* non-PF2 or row missing: ignore */ }
-    
+
     return; // prevent V1 fallback
   }
 
@@ -373,14 +375,15 @@ export async function chooseRiderDialog(kind = "success") {
       let dlg = null;
       const buttons = [
         {
-          id: "ok",
+          action: "ok",
           label: "Apply",
+          default: true,
           callback: () => {
             const val = dlg?.element?.querySelector?.('[name="rider"]')?.value?.trim() || null;
             resolve(val);
           }
         },
-        { id: "cancel", label: "Cancel", callback: () => resolve(null) }
+        { action: "cancel", label: "Cancel", callback: () => resolve(null) }
       ];
       dlg = openSimpleDialogV2({
         title: `Choose Rider (${kind})`,
@@ -415,9 +418,9 @@ export async function openCritPrompt({ isFailure = false } = {}) {
         title: isFailure ? "Critical Failure" : "Critical Success",
         content: `<p>Pick how to resolve the critical.</p>`,
         buttons: [
-          { id: "deck",  label: "Draw Crit Card", callback: () => resolve("deck")  },
-          { id: "rider", label: "Pick Rider",     callback: () => resolve("rider") },
-          { id: "cancel",label: "Cancel",         callback: () => resolve(null)    },
+          { action: "deck",  label: "Draw Crit Card", default: true, callback: () => resolve("deck")  },
+          { action: "rider", label: "Pick Rider",                    callback: () => resolve("rider") },
+          { action: "cancel",label: "Cancel",                        callback: () => resolve(null)    },
         ],
         defaultId: "deck",
       });
@@ -439,31 +442,33 @@ export async function openCritPrompt({ isFailure = false } = {}) {
   });
 }
 
-function openSimpleDialogV2({ title, content, buttons = [], defaultId = "ok" }) {
+function openSimpleDialogV2({ title, content, buttons = [] }) {
   const D2 = foundry?.applications?.api?.DialogV2;
   if (!D2) return null;
 
-  // Normalize to DialogV2's expected array of {id,label,callback}
-  const btns = buttons.map(b => ({
-    id: b.id,
-    label: b.label,
-    callback: b.callback,      // DialogV2 uses "callback"
-  })).filter(b => b.id && b.label && typeof b.callback === "function");
+  // Expect: [{ action, label, default?, callback? }, ...]
+  const btns = (buttons || [])
+    .filter(b => b && b.action && b.label)
+    .map(b => ({
+      action: b.action,
+      label:  b.label,
+      default: !!b.default,
+      callback: typeof b.callback === "function" ? b.callback : undefined
+    }));
 
   if (btns.length === 0) {
-    // Avoid "You must define at least one entry in config.buttons"
-    btns.push({ id: "ok", label: "OK", callback: () => {} });
+    btns.push({ action: "ok", label: "OK", default: true });
   }
 
   const dlg = new D2({
     window: { title },
     content,
     buttons: btns,
-    defaultId,
   });
   dlg.render(true);
   return dlg;
 }
+
 
 
 
