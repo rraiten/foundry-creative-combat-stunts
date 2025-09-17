@@ -300,6 +300,24 @@ export class PF2eAdapter {
       }
     } catch {}
 
+    // Foundry Cards fallback (vanilla worlds)
+    try {
+      const nameHit    = game.i18n?.localize?.("PF2E.CritDeck.Hit")    || "Critical Hit Deck";
+      const nameFumble = game.i18n?.localize?.("PF2E.CritDeck.Fumble") || "Critical Fumble Deck";
+      const deckName   = isFailure ? nameFumble : nameHit;
+
+      // Exact name first, then a plain EN fallback
+      let deck = game.cards?.getName?.(deckName)
+              || game.cards?.getName?.(isFailure ? "Critical Fumble Deck" : "Critical Hit Deck");
+      if (!deck && Array.isArray(game.cards?.contents)) {
+        deck = game.cards.contents.find(c => c.name?.toLowerCase?.() === deckName.toLowerCase());
+      }
+      if (deck && typeof deck.draw === "function") {
+        await deck.draw(1, { rollMode: game.settings.get("core","rollMode") });
+        return true;
+      }
+    } catch {}
+
     console.warn("CCS: No matching crit deck API. Available on game.pf2e:", {
       hasCriticalDecks: !!game.pf2e?.criticalDecks,
       hasCriticalDeck: !!game.pf2e?.criticalDeck,
@@ -310,6 +328,4 @@ export class PF2eAdapter {
     ui.notifications?.warn("Draw a crit card (GM): no compatible deck API detected.");
     return false;
   }
-
-
 }
