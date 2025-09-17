@@ -98,6 +98,8 @@ export async function openStuntDialog({ token, actor } = {}) {
 
   const sys = game?.system?.id ?? game.systemId ?? "";
   const target = Array.from(game.user?.targets ?? [])[0]?.actor ?? null;
+  const skills = getSkillChoices(actor, sys);          // build choices
+  const rollSources = [{ value: "skill", label: "Skill" }]; // keep simple for now
 
   const pf2eAdvOnce = sys === "pf2e"
     ? game.settings.get("creative-combat-stunts", "pf2eAdvantageOnce")
@@ -119,6 +121,8 @@ export async function openStuntDialog({ token, actor } = {}) {
       poolRemaining: pool?.remaining ?? 0,
       triggers,
       flavorOptions: getFlavorOptions(),
+      skills,
+      rollSources,
     }
   );
 
@@ -178,6 +182,7 @@ export async function openStuntDialog({ token, actor } = {}) {
     dlg.render(true);
     // Try immediately; if not yet in DOM, schedule a microtask
     if (dlg.element) attach(); else queueMicrotask(attach);
+    return;
   }
 
   // Fallback to V1 Dialog (keeps working on older cores)
