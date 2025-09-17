@@ -129,60 +129,73 @@ export async function openStuntDialog({ token, actor } = {}) {
   const D2 = foundry?.applications?.api?.DialogV2;
 
   if (D2) {
-    let dlg; // so callbacks can find the element
+    let dlg;
     const buttons = [
       {
         id: "roll",
         label: "Roll",
         callback: () => {
           const root = dlg.element;
-          const $ = (sel) => root.querySelector(sel);
+          const q = (sel) => root.querySelector(sel);
 
-          const coolStr  = ($('[name="cool"]')?.value || "none");
+          const coolStr  = (q('[name="cool"]')?.value || "none");
           const coolTier = coolStr === "full" ? 2 : coolStr === "light" ? 1 : 0;
 
-          const tacticalRisk = $('[name="risk"]')?.checked ?? false;
-          const plausible    = $('[name="plausible"]')?.checked ?? false;
+          const tacticalRisk = q('[name="risk"]')?.checked ?? false;
+          const plausible    = q('[name="plausible"]')?.checked ?? false;
 
-          let chooseAdvNow   = $('[name="advNow"]')?.checked ?? false;
+          let chooseAdvNow   = q('[name="advNow"]')?.checked ?? false;
           if (coolTier < 2) chooseAdvNow = false;
 
-          const spendPoolNow = $('[name="spendPool"]')?.checked ?? false;
-          const triggerId    = $('[name="trigger"]')?.value || null;
+          const spendPoolNow = q('[name="spendPool"]')?.checked ?? false;
+          const triggerId    = q('[name="trigger"]')?.value || null;
 
           game.ccf.rollStunt({
-            actor,
-            target,
+            actor, target,
             options: { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId }
           });
         }
       },
-      { id: "cancel", label: "Cancel", callback: () => {} }
+      { id: "cancel", label: "Cancel", callback: () => {} },
     ];
 
     dlg = new D2({
       window: { title: "Creative Stunt" },
       content,
-      buttons,
-      defaultId: "roll"
+      buttons,                 // <-- array, not object
+      defaultId: "roll",       // <-- must match an id in buttons
     });
 
-    // After render: wire “So Cool” → show PF2 advantage row
-    const attach = () => {
-      const root = dlg.element;
-      if (!root) return;
-      const advRow = root.querySelector("#ccs-adv-row");
-      const cool   = root.querySelector('[name="cool"]');
-      if (!advRow || !cool) return;
-      const update = () => { advRow.style.display = (cool.value || "") === "full" ? "" : "none"; };
-      cool.addEventListener("change", update);
-      update();
-    };
+    // Robust attach for DialogV2: wait until nodes exist, then wire toggle
+    function waitFor(sel, { tries = 20, interval = 25 } = {}) {
+      return new Promise((resolve, reject) => {
+      let n = 0;
+      const tick = () => {
+       const el = dlg?.element?.querySelector?.(sel);
+       if (el) return resolve(el);
+       if (++n > tries) return reject(new Error(`not found: ${sel}`));
+       setTimeout(tick, interval);
+      };
+      tick();
+      });
+    }
 
     dlg.render(true);
-    // Try immediately; if not yet in DOM, schedule a microtask
-    if (dlg.element) attach(); else queueMicrotask(attach);
-    return;
+    try {
+      // Wait for both elements to exist
+      const cool   = await waitFor('[name="cool"]');
+      const advRow = await waitFor('#ccs-adv-row');
+      const update = () => {
+        const v = cool.value;
+        advRow.style.display = (v === "full" || v === "2") ? "" : "none";
+      };
+      cool.addEventListener("change", update);
+      update(); // initial state
+    } catch (_) {
+      // Silently skip if template omitted the row (e.g., non-PF2)
+    }
+    
+    return; // prevent V1 fallback
   }
 
   // Fallback to V1 Dialog (keeps working on older cores)
