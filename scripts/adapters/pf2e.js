@@ -10,6 +10,24 @@ const SKILL_TO_DEF = {
   thi: "reflex",
 };
 
+function _getLevelBasedDC(actor) {
+  const lvl = Number(actor?.system?.details?.level?.value ?? actor?.system?.details?.level ?? 0) || 0;
+  const tbl = game.pf2e?.DCByLevel
+          ?? game.pf2e?.difficulty?.dcByLevel
+          ?? CONFIG?.PF2E?.dcByLevel
+          ?? CONFIG?.PF2E?.difficulty?.dcByLevel;
+  return tbl?.[lvl] ?? (14 + lvl);
+}
+
+function _getDefenseDC(target, defense) {
+  const sys = target?.system ?? {};
+  const saves = sys.saves ?? target?.saves ?? {};
+  if (defense === "perception") {
+    return sys.attributes?.perception?.dc?.value ?? target?.attributes?.perception?.dc?.value ?? null;
+  }
+  return saves?.[defense]?.dc?.value ?? null;
+}
+
 export class PF2eAdapter {
   async buildContext({actor, target, options}){
     const rollKind = (options?.rollKind ?? "skill").toLowerCase();
@@ -22,7 +40,7 @@ export class PF2eAdapter {
     } else {
       dc = _getLevelBasedDC(actor);
     }
-    
+
     return {
       actor, target, rollKind, rollKey, 
       stat: this.pickStatistic(actor, rollKind, rollKey),
@@ -32,24 +50,6 @@ export class PF2eAdapter {
       trigger: null,
       ...options
     };
-  }
-
-  _getLevelBasedDC(actor) {
-    const lvl = Number(actor?.system?.details?.level?.value ?? actor?.system?.details?.level ?? 0) || 0;
-    const tbl = game.pf2e?.DCByLevel
-            ?? game.pf2e?.difficulty?.dcByLevel
-            ?? CONFIG?.PF2E?.dcByLevel
-            ?? CONFIG?.PF2E?.difficulty?.dcByLevel;
-    return tbl?.[lvl] ?? (14 + lvl);
-  }
-
-  _getDefenseDC(target, defense) {
-    const sys = target?.system ?? {};
-    const saves = sys.saves ?? target?.saves ?? {};
-    if (defense === "perception") {
-      return sys.attributes?.perception?.dc?.value ?? target?.attributes?.perception?.dc?.value ?? null;
-    }
-    return saves?.[defense]?.dc?.value ?? null;
   }
 
   pickStatistic(actor, rollKind = "skill", rollKey = "acr"){
@@ -268,59 +268,68 @@ export class PF2eAdapter {
 
   async drawCritCard({ type = "attack", isFailure = false } = {}) {
     const outcome = isFailure ? "criticalFailure" : "criticalSuccess";
-    const decks = game.pf2e?.criticalDecks ?? game.pf2e?.criticalDeck ?? null;
 
-    // 1) Known top-level signatures
-    try { if (decks?.draw)         { await decks.draw({ type, isFailure }); return true; } } catch {}
-    try { if (decks?.draw)         { await decks.draw(outcome);             return true; } } catch {}
-    try { if (decks?.drawCard)     { await decks.drawCard({ type, isFailure }); return true; } } catch {}
-    try { if (game.pf2e?.drawCriticalCard) { await game.pf2e.drawCriticalCard({ type, outcome }); return true; } } catch {}
-    try { if (game.pf2e?.drawCriticalCard) { await game.pf2e.drawCriticalCard(type, outcome); return true; } } catch {}
-
-    // 2) Nested drawers (some worlds expose e.g. criticalDecks.attack.draw)
+    /* 1) PF2e APIs (several versions) */
     try {
-      if (decks && typeof decks === "object") {
-        for (const k of Object.keys(decks)) {
-          const sub = decks[k];
-          if (sub && typeof sub.draw === "function") {
-            try {
-              // Try object form first, then outcome string
-              await sub.draw({ type, isFailure }); return true;
-            } catch {}
-            try {
-              await sub.draw(outcome); return true;
-            } catch {}
-          }
-        }
+      const decks = game.pf2e?.criticalDecks ?? game.pf2e?.criticalDeck ?? null;
+
+      if (decks?.draw) {
+        try { await decks.draw({ type, isFailure }); console.debug("CCS crit: pf2e.decks.draw(obj)"); return true; } catch {}
+        try { await decks.draw(outcome);              console.debug("CCS crit: pf2e.decks.draw(outcome)"); return true; } catch {}
       }
-    } catch {}
+      if (typeof decks?.drawCard === "function") {
+        try { await decks.drawCard({ type, isFailure }); console.debug("CCS crit: pf2e.decks.drawCard(obj)"); return true; } catch {}
+      }
+      if (typeof game.pf2e?.drawCriticalCard === "function") {
+        try { await game.pf2e.drawCriticalCard({ type, outcome }); console.debug("CCS crit: pf2e.drawCriticalCard(obj)"); return true; } catch {}
+        try { await game.pf2e.drawCriticalCard(type, outcome);     console.debug("CCS crit: pf2e.drawCriticalCard(args)"); return true; } catch {}
+      }
+    } catch {/* noop */}
 
-    // Foundry Cards fallback (vanilla worlds)
+    /* 2) Foundry Cards fallback */
     try {
+      const all = Array.from(game.cards?.contents ?? []);
+      // Prefer localized names; then English; then any deck containing "Critical"
       const nameHit    = game.i18n?.localize?.("PF2E.CritDeck.Hit")    || "Critical Hit Deck";
       const nameFumble = game.i18n?.localize?.("PF2E.CritDeck.Fumble") || "Critical Fumble Deck";
-      const deckName   = isFailure ? nameFumble : nameHit;
+      const wantExact  = isFailure ? nameFumble : nameHit;
 
-      // Exact name first, then a plain EN fallback
-      let deck = game.cards?.getName?.(deckName)
-              || game.cards?.getName?.(isFailure ? "Critical Fumble Deck" : "Critical Hit Deck");
-      if (!deck && Array.isArray(game.cards?.contents)) {
-        deck = game.cards.contents.find(c => c.name?.toLowerCase?.() === deckName.toLowerCase());
-      }
-      if (deck && typeof deck.draw === "function") {
-        await deck.draw(1, { rollMode: game.settings.get("core","rollMode") });
-        return true;
-      }
-    } catch {}
+      let deck =
+        game.cards?.getName?.(wantExact) ||
+        game.cards?.getName?.(isFailure ? "Critical Fumble Deck" : "Critical Hit Deck") ||
+        all.find(d => /critical/i.test(d?.name || "") && (isFailure ? /fumble/i : /hit/i).test(d.name)) ||
+        all.find(d => /critical/i.test(d?.name || ""));
 
-    console.warn("CCS: No matching crit deck API. Available on game.pf2e:", {
-      hasCriticalDecks: !!game.pf2e?.criticalDecks,
-      hasCriticalDeck: !!game.pf2e?.criticalDeck,
-      keysCriticalDecks: game.pf2e?.criticalDecks ? Object.keys(game.pf2e.criticalDecks) : null,
-      keysCriticalDeck: game.pf2e?.criticalDeck ? Object.keys(game.pf2e.criticalDeck) : null,
-      hasDrawCriticalCard: typeof game.pf2e?.drawCriticalCard === "function",
+      if (deck) {
+        // Try programmatic draw first (GM usually allowed):
+        if (typeof deck.draw === "function") {
+          try {
+            await deck.draw(1, { rollMode: game.settings.get("core", "rollMode") });
+            console.debug("CCS crit: Cards.draw(1) from", deck.name);
+            return true;
+          } catch (e) {
+            console.debug("CCS crit: Cards.draw failed, falling back to drawDialog()", e);
+          }
+        }
+        // If draw() isn’t permitted or throws, let the user click via dialog:
+        if (typeof deck.drawDialog === "function") {
+          await deck.drawDialog();
+          console.debug("CCS crit: Cards.drawDialog() from", deck.name);
+          return true;
+        }
+      }
+      console.warn("CCS: Cards fallback found no usable deck.", { cardDecks: all.map(d => d.name) });
+    } catch (e) {
+      console.warn("CCS: Cards fallback threw", e);
+    }
+
+    /* 3) Nothing matched */
+    console.warn("CCS: No crit-deck API or Cards deck matched.", {
+      pf2eHasCriticalDecks: !!game.pf2e?.criticalDecks,
+      pf2eHasCriticalDeck:  !!game.pf2e?.criticalDeck,
+      cardsCount: game.cards?.size ?? (game.cards?.contents?.length || 0)
     });
-    ui.notifications?.warn("Draw a crit card (GM): no compatible deck API detected.");
+    ui.notifications?.warn("Draw a crit card (GM): no compatible deck API or deck found.");
     return false;
   }
 }
