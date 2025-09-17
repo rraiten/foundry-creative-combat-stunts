@@ -2,11 +2,14 @@ import { openCritPrompt, chooseRiderDialog } from "../ui.js";
 
 export class PF2eAdapter {
   async buildContext({actor, target, options}){
-    const reflexDC = target?.saves?.reflex?.dc?.value ?? target?.system?.saves?.reflex?.dc?.value;
+    const reflexDC = target?.saves?.reflex?.dc?.value ?? target?.system?.saves?.reflex?.dc?.value ?? null;
+    const rollKind = (options?.rollKind ?? "skill").toLowerCase();
+    const rollKey  = options?.rollKey ?? "acr";
+    const dc       = options?.dcOverride != null ? Number(options.dcOverride) : (reflexDC ?? 20);
     return {
-      actor, target,
+      actor, target, rollKind, rollKey, 
       stat: this.pickStatistic(actor),
-      dc: reflexDC ?? 20,
+      dc,
       rollTwice: null,
       coolBonus: 0,
       trigger: null,
@@ -14,18 +17,49 @@ export class PF2eAdapter {
     };
   }
 
-  pickStatistic(actor){
-    const acr = actor?.skills?.acr || actor?.system?.skills?.acr;
-    return acr ?? actor?.skills?.ath ?? actor?.system?.skills?.ath ?? null;
+  pickStatistic(actor, rollKind = "skill", rollKey = "acr"){
+    if (rollKind === "perception") {
+      return actor?.perception ?? null;
+    }
+    // skill
+    const skills = actor?.skills ?? actor?.system?.skills ?? {};
+    const chosen = skills?.[rollKey] ?? skills?.acr ?? null;
+    // Return a roll-capable object if possible (some PF2e versions use .check.roll)
+    return chosen?.check ?? (typeof chosen?.roll === "function" ? chosen : null);
   }
 
   async roll(ctx){
-    const stat = ctx.stat;
+    const stat = ctx?.stat ?? this.pickStatistic(ctx?.actor, ctx?.rollKind, ctx?.rollKey);
     let rollOpts = { createMessage:false };
     if (ctx.rollTwice === "keep-higher") rollOpts.rollTwice = "keep-higher";
     if (ctx.coolBonus) {
       rollOpts.extraModifiers = rollOpts.extraModifiers || [];
       rollOpts.extraModifiers.push(new game.pf2e.Modifier({label:"Cool", modifier: ctx.coolBonus, type:"circumstance"}));
+    }
+    if (!stat || typeof stat.roll !== "function") {
+      // Fallback to unified Check roller
+      const Check = game?.pf2e?.Check;
+      if (Check?.roll) {
+        const statistic =
+          (ctx?.rollKind === "perception" ? (ctx?.actor?.perception ?? null)
+           : ctx?.actor?.skills?.[ctx?.rollKey ?? "acr"] ?? ctx?.actor?.skills?.acr ?? null);
+        if (!statistic) {
+          ui.notifications?.error("PF2e: Could not resolve a rollable statistic.");
+          return null;
+        }
+        const r2 = await Check.roll({
+          actor: ctx.actor,
+          type: "skill-check",
+          statistic,
+          dc: ctx?.dc != null ? { value: Number(ctx.dc) } : undefined,
+          traits: ["ccs-stunt"],
+          options: ["ccs"],
+          skipDialog: true,
+        });
+        return { total: r2?.total ?? 0, formula: r2?.formula ?? "d20", roll: r2 };
+      }
+      ui.notifications?.error("PF2e: No roll method available.");
+      return null;
     }
     const r = await stat.roll(rollOpts);
     return { total: r?.total ?? 0, formula: r?.formula ?? "d20", roll: r };

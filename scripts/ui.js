@@ -88,6 +88,9 @@ export async function openStuntDialog({ token, actor } = {}) {
     ? (target?.getFlag("creative-combat-stunts", "weaknessTriggers") ?? [])
     : [];
 
+  // Build skill choices dynamically from the actor
+  const skills = getSkillChoices(actor, sys);
+
   const content = await renderTemplate(
     "modules/creative-combat-stunts/templates/stunt-dialog.hbs",
     {
@@ -97,6 +100,10 @@ export async function openStuntDialog({ token, actor } = {}) {
       poolEnabled: !!pool?.enabled,
       poolRemaining: pool?.remaining ?? 0,
       triggers,
+      rollSources: [
+        { value: "skill", label: "Skill" },
+      ],
+      skills,
       flavorOptions: getFlavorOptions(),
     }
   );
@@ -115,10 +122,15 @@ export async function openStuntDialog({ token, actor } = {}) {
           const spendPoolNow = html.find('[name="spendPool"]').is(":checked");
           const triggerId = html.find('[name="trigger"]').val() || null;
 
+          const rollKind = (html.find('[name="rollKind"]').val() || "skill").toLowerCase();
+          const rollKey  = html.find('[name="rollKey"]').val() || null;   // only used when kind=skill
+          const dcRaw    = html.find('[name="dcOverride"]').val();
+          const dcOverride = dcRaw === "" ? null : Number(dcRaw);
+
           game.ccf.rollStunt({
             actor,
             target,
-            options: { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId },
+            options: { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId, rollKind, rollKey, dcOverride },
           });
         },
       },
@@ -251,6 +263,22 @@ export async function openWeaknessEditor(actor) {
   });
 
   dlg.render(true);
+}
+
+function getSkillChoices(actor, sysId) {
+  // PF2e exposes actor.skills (v4+/v5+), 5e exposes actor.system.skills
+  let dict = null;
+  if (sysId === "pf2e") {
+    dict = actor?.skills ?? actor?.system?.skills ?? {};
+  } else if (sysId === "dnd5e") {
+    dict = actor?.system?.skills ?? {};
+  } else {
+    dict = actor?.skills ?? actor?.system?.skills ?? {};
+  }
+  return Object.entries(dict).map(([key, val]) => ({
+    value: key,
+    label: (val?.label ?? val?.name ?? key).toString().replace(/\b\w/g, m => m.toUpperCase()),
+  })).sort((a, b) => a.label.localeCompare(b.label));
 }
 
 /* ---------- placeholders ---------- */

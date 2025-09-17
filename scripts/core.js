@@ -48,6 +48,7 @@ export class CCF {
 
     // Roll (system-specific)
     const result = await this.adapter.roll(ctx);
+    if (!result) return; // adapter already notified; stop cleanly
     let degree = await this.adapter.degreeOfSuccess(result, ctx);
 
     // Cinematic Pool upgrade (system-specific mapping handled by adapter if needed)
