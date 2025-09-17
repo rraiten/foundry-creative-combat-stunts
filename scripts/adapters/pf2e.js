@@ -130,7 +130,6 @@ export class PF2eAdapter {
     }
   }
 
-
   parseEntry(entry){
     const t = (entry||"").trim();
     if (!t) return null;
@@ -254,118 +253,56 @@ export class PF2eAdapter {
     return degree;
   }
 
-  /**
-   * Roll the stunt as a temporary Strike so PF2e's "Use Critical Decks" hooks can trigger.
-   * - Matches the chosen skill bonus
-   * - Cleans up the temp weapon after rolling
-   * Returns a result object { total, formula, roll } like your normal roll().
-   */
   async rollAsStrike(ctx) {
     const actor = ctx.actor;
-    const skill = ctx.stat;                   // You already resolved this from the chosen skill
-    if (!actor || !skill?.check?.roll && !skill?.roll) {
-      ui.notifications?.warn("PF2e: Could not resolve the chosen skill to convert into a Strike.");
+    const stat  = ctx.stat; // chosen skill Statistic/Check
+    if (!actor || !stat) {
+      ui.notifications?.warn("PF2e: No actor/statistic to roll as a Strike.");
       return null;
     }
 
-    // Figure the total attack modifier we want the Strike to have
-    // Ask PF2e for the current skill total by doing a silent test roll of the check modifier
-    // (cheaper than building proficiency math ourselves)
-    let skillMod = 0;
-    try {
-      // Many skills expose .check.mod or .mod; else get modifier from a silent roll's total - d20
-      // Prefer reading the modifier directly if available:
-      skillMod = Number(skill?.check?.mod ?? skill?.mod ?? 0);
-      if (!skillMod) {
-        // Silent roll to compute the modifier (minus the die result)
-        const tmp = await (skill.check?.roll?.({ createMessage: false }) ?? skill.roll?.({ createMessage: false }));
-        if (tmp) {
-          // The first die is a d20; subtract to get the static modifier
-          const d20 = tmp.dice?.[0]?.total ?? 10;
-          skillMod = (tmp.total ?? d20) - d20;
-        }
-      }
-    } catch {
-      /* ignore, fallback to 0 already set */
+    // 1) Choose an existing melee/unarmed strike (prefer unarmed "fist")
+    const strikes = actor.system?.actions ?? actor.system?.strikes ?? [];
+    let strike =
+      strikes.find(s => s?.item?.system?.traits?.value?.includes?.("unarmed")) ||
+      strikes.find(s => (s?.item?.system?.range?.value ?? null) == null) ||
+      strikes[0];
+
+    const attackFn = strike?.attack ?? strike?.variants?.[0]?.roll;
+    if (typeof attackFn !== "function") {
+      ui.notifications?.warn("PF2e: Could not access a Strike roll function.");
+      return null;
     }
 
-    // Create a very simple temporary weapon item (melee, no damage importance)
-    const weaponData = {
-      type: "weapon",
-      name: "CCS Stunt Strike (temp)",
-      system: {
-        category: "simple",
-        group: "knife",
-        damage: { dice: 0, die: "d4", damageType: "bludgeoning", modifier: 0 }, // irrelevant
-        bonus: { value: 0 },            // base item bonus 0; we inject the skill via a RuleElement below
-        traits: { value: ["unarmed"] },
-        range: { value: null },
-        melee: true
-      }
+    // 2) Work out the desired attack mod = chosen skill’s mod (+ cool bonus unless swapped for advantage)
+    let skillMod =
+      Number(stat?.check?.mod ?? stat?.mod ?? 0) || 0;
+
+    const currentAttack =
+      Number(strike?.totalModifier ?? strike?.attack?.totalModifier ?? strike?.mod ?? 0) || 0;
+
+    const Mod = game.pf2e?.Modifier ?? game.pf2e?.modifiers?.Modifier;
+    const mods = [];
+
+    if (Mod) {
+      const delta = skillMod - currentAttack;
+      if (delta) mods.push(new Mod({ label: "Stunt (skill→strike)", modifier: delta, type: "untyped" }));
+      if (ctx.coolBonus) mods.push(new Mod({ label: "Stunt (cool)", modifier: Number(ctx.coolBonus) || 0, type: "circumstance" }));
+    }
+
+    // 3) Roll as a Strike (produces a native PF2e attack chat card)
+    const rollOpts = { createMessage: true, skipDialog: true };
+    if (ctx.rollTwice === "keep-higher") rollOpts.rollTwice = "keep-higher";
+    if (mods.length) rollOpts.modifiers = mods;
+
+    const r = await attackFn(rollOpts);
+
+    return {
+      total:   r?.total   ?? r?.roll?.total   ?? 0,
+      formula: r?.formula ?? r?.roll?.formula ?? "d20",
+      roll:    r?.roll    ?? r
     };
-
-    let temp;
-    try {
-      const created = await actor.createEmbeddedDocuments("Item", [weaponData], { temporary: false });
-      temp = created?.[0];
-      if (!temp) throw new Error("Temp weapon not created");
-
-      // Add a temporary rule to make its attack roll = chosen skill modifier (+ any Stunt bonuses)
-      // We use an ephemeral Effect via your existing helper to avoid mutating the item schema.
-      const Mod = game.pf2e?.Modifier ?? game.pf2e?.modifiers?.Modifier;
-
-      const mods = [];
-      if (Mod) {
-        // skill-based modifier
-        mods.push(new Mod({ label: "Stunt (skill)", modifier: Number(skillMod) || 0, type: "untyped" }));
-        // circumstance from Flavor (already in ctx.coolBonus if not swapped for advantage)
-        if (ctx.coolBonus) mods.push(new Mod({ label: "Stunt (cool)", modifier: Number(ctx.coolBonus) || 0, type: "circumstance" }));
-      }
-
-      // Build roll options for an attack roll
-      const rollOpts = { createMessage: true, // let PF2e post the Strike card
-                        skipDialog: true };
-
-      if (ctx.rollTwice === "keep-higher") rollOpts.rollTwice = "keep-higher";
-      if (mods.length) rollOpts.modifiers = mods;
-
-      // Find the strike action for this item
-      // Depending on PF2e version, access can differ; try a few common shapes:
-      let attackFn = temp?.system?.actions?.[0]?.attack
-                  ?? temp?.system?.strikes?.[0]?.attack
-                  ?? temp?.system?.actions?.[0]?.variants?.[0]?.roll;
-
-      if (typeof attackFn !== "function") {
-        // Fallback: use Statistic attack context if exposed
-        const strikes = actor.system?.actions ?? actor.system?.strikes ?? [];
-        const strike = strikes.find(s => s?.item?.id === temp.id);
-        attackFn = strike?.attack ?? strike?.variants?.[0]?.roll ?? null;
-      }
-
-      if (typeof attackFn !== "function") {
-        ui.notifications?.warn("PF2e: Could not access a Strike roll function for the temp weapon.");
-        return null;
-      }
-
-      // Roll the attack as a normal Strike (this produces the PF2e strike chat card)
-      const r = await attackFn.call(temp, rollOpts);
-
-      // Normalize a result object for your pipeline
-      const result = { total: r?.total ?? r?.roll?.total ?? 0,
-                      formula: r?.formula ?? r?.roll?.formula ?? "d20",
-                      roll: r?.roll ?? r };
-
-      return result;
-    } catch (e) {
-      console.warn("CCS: Stunt Strike failed", e);
-      ui.notifications?.warn("CCS: Could not roll a Stunt Strike.");
-      return null;
-    } finally {
-      // Clean up the temp weapon
-      if (temp?.id) {
-        try { await actor.deleteEmbeddedDocuments("Item", [temp.id]); } catch { /* ignore */ }
-      }
-    }
   }
+
 
 }
