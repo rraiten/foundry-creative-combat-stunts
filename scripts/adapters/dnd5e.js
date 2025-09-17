@@ -92,3 +92,5 @@ export class DnD5eAdapter {
     }
   }
 }
+
+export default DnD5eAdapter;
