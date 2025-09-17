@@ -1,7 +1,10 @@
 <div class="ccs-card">
   <h3>🎭 Creative Stunt</h3>
   <p><b>{{actorName}}</b> vs <b>{{targetName}}</b></p>
-  <p>Roll: <code>{{formula}}</code> = <b>{{total}}</b> vs DC <b>{{dc}}</b></p>
+  <p><b>Roll:</b> {{formula}} = {{total}} vs DC {{dc}}</p>
+  {{#if rollTooltip}}
+    <div class="dice-tooltip">{{{rollTooltip}}}</div>
+  {{/if}}
   <p>Outcome: <b>{{degree}}</b>
     {{#if tacticalRisk}} • <i>Tactical Risk</i>{{/if}}
     {{#if rollTwice}} • Advantage{{/if}}

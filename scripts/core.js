@@ -2,6 +2,8 @@ export class CCF {
   constructor(){ this.adapter = null; this.effects = new CCFEffs(); }
   setAdapter(adapter){ this.adapter = adapter; }
 
+  isPF2 = () => (game?.system?.id ?? game.systemId ?? "") === "pf2e";
+
   async _canUseOncePerCombat(actorId, key){
     const combat = game.combat; if (!combat) return false;
     const usage = combat.getFlag("creative-combat-stunts", key) || {};
@@ -25,6 +27,10 @@ export class CCF {
       if (!ok) {
         ui.notifications?.warn("You have already used Advantage this combat.");
         chooseAdvNow = false;
+      } else {
+        // lock it in for this encounter immediately (prevents double-dipping)
+        await this._markUsedOncePerCombat(actor.id, "advUsage");
+        advUsed = true;
       }
     }
 
@@ -72,8 +78,9 @@ export class CCF {
     if (poolSpent) extra.push("🎬 Cinematic Pool spent (+1 degree/upgrade)");
 
     const content = await renderTemplate("modules/creative-combat-stunts/templates/chat-card.hbs",{
-      actorName: actor?.name, targetName: target?.name,
+      actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
       total: result.total, formula: result.formula, dc: ctx.dc,
+      rollTooltip: (await result?.roll?.getTooltip?.()) ?? null,
       degree: degreeTxt,
       coolBonus: ctx.coolBonus ?? 0, rollTwice: ctx.rollTwice === "keep-higher",
       tacticalRisk: !!ctx.tacticalRisk, applied,

@@ -137,6 +137,17 @@ export async function openStuntDialog({ token, actor } = {}) {
       cancel: { label: "Cancel" },
     },
     default: "roll",
+    render: (html) => {
+      // PF2-only: show advantage swap ONLY when cool tier == 2
+      const $row = html.find("#ccs-adv-row");
+      if (!$row.length) return;
+        const update = () => {
+        const tier = Number(html.find('[name="cool"]').val() ?? 0);
+        $row.toggle(tier === 2);
+      };
+      html.find('[name="cool"]').on("change", update);
+      update(); // initial
+    }
   }).render(true);
 }
 
@@ -281,13 +292,34 @@ function getSkillChoices(actor, sysId) {
   })).sort((a, b) => a.label.localeCompare(b.label));
 }
 
-/* ---------- placeholders ---------- */
-export async function chooseRiderDialog() {
-  ui.notifications?.warn("chooseRiderDialog is not yet implemented.");
-  return null;
+export async function chooseRiderDialog(kind = "success") {
+  return new Promise((resolve) => {
+    new Dialog({
+      title: `Choose Rider (${kind})`,
+      content: `<p>Select a rider or cancel to use the default.</p>
+        <input type="text" name="rider" placeholder="e.g., prone, frightened:1, drop-item" style="width:100%"/>`,
+      buttons: {
+        ok: { label: "Apply", callback: (html) => resolve(html.find('[name="rider"]').val()?.trim() || null) },
+        cancel: { label: "Cancel", callback: () => resolve(null) }
+      },
+      default: "ok"
+    }).render(true);
+  });
+}
+ 
+
+export async function openCritPrompt({ isFailure = false } = {}) {
+  return new Promise((resolve) => {
+    new Dialog({
+      title: isFailure ? "Critical Failure" : "Critical Success",
+      content: `<p>Pick how to resolve the critical.</p>`,
+      buttons: {
+        deck:   { label: "Draw Crit Card", callback: () => resolve("deck") },
+        rider:  { label: "Pick Rider",     callback: () => resolve("rider") },
+        cancel: { label: "Cancel",         callback: () => resolve(null) }
+      },
+      default: "deck"
+    }).render(true);
+  });
 }
 
-export async function openCritPrompt() {
-  ui.notifications?.warn("openCritPrompt is not yet implemented.");
-  return null;
-}

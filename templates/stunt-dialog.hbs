@@ -7,17 +7,20 @@
 
   <hr/>
   <div class="form-group">
-    <label>Cool</label>
+    <label>Flavor</label>
     <select name="cool">
-      <option value="none">None</option>
-      <option value="light">Lightly Cool (+1 / Adv in 5e)</option>
-      <option value="full">Cool (+2 PF2e / Adv 5e)</option>
+      <option value="none">Normal</option>
+      <option value="light">Nice / repeating cool</option>
+      <option value="full">So Cool</option>
     </select>
   </div>
-  {{#if pf2eAdvOnce}}
-  <div class="form-group">
-    <label><input type="checkbox" name="advNow"/> PF2e: Use once-per-combat Advantage instead of +2</label>
-  </div>
+  {{#if isPF2}}
+    <div class="form-group" id="ccs-adv-row" style="display:none;">
+      <label>
+        <input type="checkbox" name="advNow"/>
+        Use advantage instead of circumstance bonus (once per encounter)
+      </label>
+    </div>
   {{/if}}
 
   <hr/>
@@ -54,7 +57,6 @@
   <div class="form-group">
     <label>DC Override</label>
     <input type="number" name="dcOverride" placeholder="auto" />
-    <p class="hint">Leave blank to auto-pick (PF2e: target Reflex DC; 5e: target AC).</p>
   </div>
 
 </div>
