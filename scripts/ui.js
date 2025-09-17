@@ -164,18 +164,20 @@ export async function openStuntDialog({ token, actor } = {}) {
     });
 
     // After render: wire “So Cool” → show PF2 advantage row
-    dlg.on("render", () => {
+    const attach = () => {
       const root = dlg.element;
+      if (!root) return;
       const advRow = root.querySelector("#ccs-adv-row");
       const cool   = root.querySelector('[name="cool"]');
       if (!advRow || !cool) return;
       const update = () => { advRow.style.display = (cool.value || "") === "full" ? "" : "none"; };
       cool.addEventListener("change", update);
-      update(); // initial
-    });
+      update();
+    };
 
     dlg.render(true);
-    return;
+    // Try immediately; if not yet in DOM, schedule a microtask
+    if (dlg.element) attach(); else queueMicrotask(attach);
   }
 
   // Fallback to V1 Dialog (keeps working on older cores)
