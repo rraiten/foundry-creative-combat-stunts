@@ -68,36 +68,13 @@ export class PF2eAdapter {
 
   async roll(ctx){
     const stat = ctx?.stat ?? this.pickStatistic(ctx?.actor, ctx?.rollKind, ctx?.rollKey);
-    let rollOpts = { createMessage:false };
+    const Mod = game.pf2e?.Modifier ?? game.pf2e?.modifiers?.Modifier;
+    const rollOpts = { createMessage: false };
     if (ctx.rollTwice === "keep-higher") rollOpts.rollTwice = "keep-higher";
-    if (ctx.coolBonus) {
-      rollOpts.extraModifiers = rollOpts.extraModifiers || [];
-      rollOpts.extraModifiers.push(new game.pf2e.Modifier({label:"Cool", modifier: ctx.coolBonus, type:"circumstance"}));
-    }
-    if (!stat || typeof stat.roll !== "function") {
-      // Fallback to unified Check roller
-      const Check = game?.pf2e?.Check;
-      if (Check?.roll) {
-        const statistic =
-          (ctx?.rollKind === "perception" ? (ctx?.actor?.perception ?? null)
-           : ctx?.actor?.skills?.[ctx?.rollKey ?? "acr"] ?? ctx?.actor?.skills?.acr ?? null);
-        if (!statistic) {
-          ui.notifications?.error("PF2e: Could not resolve a rollable statistic.");
-          return null;
-        }
-        const r2 = await Check.roll({
-          actor: ctx.actor,
-          type: "skill-check",
-          statistic,
-          dc: ctx?.dc != null ? { value: Number(ctx.dc) } : undefined,
-          traits: ["ccs-stunt"],
-          options: ["ccs"],
-          skipDialog: true,
-        });
-        return { total: r2?.total ?? 0, formula: r2?.formula ?? "d20", roll: r2 };
-      }
-      ui.notifications?.error("PF2e: No roll method available.");
-      return null;
+    if (ctx.coolBonus && Mod) {
+      rollOpts.modifiers = [
+        new Mod({ label: "Cool", modifier: Number(ctx.coolBonus) || 0, type: "circumstance" })
+      ];
     }
     const r = await stat.roll(rollOpts);
     return { total: r?.total ?? 0, formula: r?.formula ?? "d20", roll: r };
@@ -227,42 +204,36 @@ export class PF2eAdapter {
 
   async applyCondition(actor, slug, value = null) {
     try {
-      let s = String(slug || "").toLowerCase();
-      const valuedSet = new Set(["frightened","enfeebled","stupefied","doomed","drained","clumsy","sickened","wounded"]);
-      const isValued = value != null || valuedSet.has(s);
-
-      if (!isValued) {
-        ui.notifications?.warn(`CCS: Could not apply condition ${slug}.`);
-        return;
-      }
-      
+      const s = String(slug || "").toLowerCase(); // use "off-guard", "prone", etc.
       const cm = game.pf2e?.ConditionManager;
 
-      // Newer API (preferred)
+      // Preferred modern API handles both valued and non-valued
       if (cm?.addCondition) {
-        await cm.addCondition(slug, actor, { value });
+        const opts = value != null ? { value } : undefined;
+        await cm.addCondition(s, actor, opts);
         return;
       }
 
-      // Older APIs on the actor
-      if (typeof actor?.increaseCondition === "function") {
-        await actor.increaseCondition(slug, value != null ? { value } : undefined);
+      // Older actor APIs
+      if (value == null && typeof actor?.toggleCondition === "function") {
+        await actor.toggleCondition(s, { active: true });
         return;
       }
-      if (typeof actor?.toggleCondition === "function") {
-        await actor.toggleCondition(slug, { active: true, value: value ?? undefined });
+      if (value != null && typeof actor?.increaseCondition === "function") {
+        await actor.increaseCondition(s, { value });
         return;
       }
 
-      // Fallback: create a lightweight effect so play can continue
-      await game.ccf.effects.applyEffectItem(actor, `CCS: ${slug}`, 1, [
-        { key: "Note", selector: "all", text: `${slug} (CCS fallback)`, title: "CCS" },
+      // Fallback: lightweight effect so play continues
+      await game.ccf.effects.applyEffectItem(actor, `CCS: ${s}`, 1, [
+        { key: "Note", selector: "all", text: `${s} (CCS fallback)`, title: "CCS" },
       ]);
     } catch (e) {
       console.warn("CCS: Failed to apply condition", slug, e);
       ui.notifications?.warn(`CCS: Could not apply condition ${slug}.`);
     }
   }
+
 
   // Map Flavor + Advantage into PF2e roll context
   async applyPreRollAdjustments(ctx, { coolTier, chooseAdvNow }) {
@@ -301,57 +272,44 @@ export class PF2eAdapter {
   }
 
   async drawCritCard({ type = "attack", isFailure = false } = {}) {
-  const outcome = isFailure ? "criticalFailure" : "criticalSuccess";
+    const outcome = isFailure ? "criticalFailure" : "criticalSuccess";
+    const decks = game.pf2e?.criticalDecks ?? game.pf2e?.criticalDeck ?? null;
 
-  // Common PF2e system APIs in various versions
-  const decks = game.pf2e?.criticalDecks ?? game.pf2e?.criticalDeck ?? null;
-  try {
-    if (decks?.draw) {
-      // Newer signature
-      await decks.draw({ type, isFailure });
-      return true;
-    }
-  } catch {}
-  try {
-    if (decks?.draw) {
-      // Older signature variant
-      await decks.draw(outcome);
-      return true;
-    }
-  } catch {}
-  try {
-    if (typeof decks?.drawCard === "function") {
-      await decks.drawCard({ type, isFailure });
-      return true;
-    }
-  } catch {}
+    // 1) Known top-level signatures
+    try { if (decks?.draw)         { await decks.draw({ type, isFailure }); return true; } } catch {}
+    try { if (decks?.draw)         { await decks.draw(outcome);             return true; } } catch {}
+    try { if (decks?.drawCard)     { await decks.drawCard({ type, isFailure }); return true; } } catch {}
+    try { if (game.pf2e?.drawCriticalCard) { await game.pf2e.drawCriticalCard({ type, outcome }); return true; } } catch {}
+    try { if (game.pf2e?.drawCriticalCard) { await game.pf2e.drawCriticalCard(type, outcome); return true; } } catch {}
 
-  // Some installs expose a top-level fn
-  try {
-    if (typeof game.pf2e?.drawCriticalCard === "function") {
-      // Try object form
-      await game.pf2e.drawCriticalCard({ type, outcome });
-      return true;
-    }
-  } catch {}
-  try {
-    if (typeof game.pf2e?.drawCriticalCard === "function") {
-      // Try positional form
-      await game.pf2e.drawCriticalCard(type, outcome);
-      return true;
-    }
-  } catch {}
+    // 2) Nested drawers (some worlds expose e.g. criticalDecks.attack.draw)
+    try {
+      if (decks && typeof decks === "object") {
+        for (const k of Object.keys(decks)) {
+          const sub = decks[k];
+          if (sub && typeof sub.draw === "function") {
+            try {
+              // Try object form first, then outcome string
+              await sub.draw({ type, isFailure }); return true;
+            } catch {}
+            try {
+              await sub.draw(outcome); return true;
+            } catch {}
+          }
+        }
+      }
+    } catch {}
 
-  // As a last resort, log what we can see to the console to tune detection
-  console.warn("CCS: No matching crit deck API. Available on game.pf2e:", {
-    hasCriticalDecks: !!game.pf2e?.criticalDecks,
-    hasCriticalDeck: !!game.pf2e?.criticalDeck,
-    keysCriticalDecks: game.pf2e?.criticalDecks ? Object.keys(game.pf2e.criticalDecks) : null,
-    keysCriticalDeck: game.pf2e?.criticalDeck ? Object.keys(game.pf2e.criticalDeck) : null,
-    hasDrawCriticalCard: typeof game.pf2e?.drawCriticalCard === "function",
-  });
-  ui.notifications?.warn("Draw a crit card (GM): no compatible deck API detected.");
-  return false;
-}
+    console.warn("CCS: No matching crit deck API. Available on game.pf2e:", {
+      hasCriticalDecks: !!game.pf2e?.criticalDecks,
+      hasCriticalDeck: !!game.pf2e?.criticalDeck,
+      keysCriticalDecks: game.pf2e?.criticalDecks ? Object.keys(game.pf2e.criticalDecks) : null,
+      keysCriticalDeck: game.pf2e?.criticalDeck ? Object.keys(game.pf2e.criticalDeck) : null,
+      hasDrawCriticalCard: typeof game.pf2e?.drawCriticalCard === "function",
+    });
+    ui.notifications?.warn("Draw a crit card (GM): no compatible deck API detected.");
+    return false;
+  }
+
 
 }

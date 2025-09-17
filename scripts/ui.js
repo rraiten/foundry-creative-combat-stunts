@@ -72,7 +72,7 @@ export function registerUI() {
       btn.addEventListener("click", async (ev) => {
         const isFailure = ev.currentTarget?.dataset?.fail === "true";
         try {
-          const ok = await drawCritCard({ type: "attack", isFailure });
+          const ok = await game?.ccf?.adapter?.drawCritCard?.({ type: "attack", isFailure });
           if (!ok) return; // notification already shown in helper
         } catch (e) {
           console.error("CCS: Crit deck draw failed", e);
