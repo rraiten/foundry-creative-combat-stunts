@@ -68,28 +68,9 @@ export class PF2eAdapter {
   async degreeOfSuccess(result, ctx) {
     if (!result) return null;
 
-    const dc = Number(ctx?.dc ?? 20);
-    const total = Number(result?.total ?? 0);
-
-    // base degree by ±10 rule
-    let degree;
-    if (!Number.isFinite(dc)) return null;
-    if (total >= dc + 10) degree = 3;
-    else if (total >= dc) degree = 2;
-    else if (total <= dc - 10) degree = 0;
-    else degree = 1;
-
-    // find the d20 and apply nat 20/1 shift
-    const nat = (() => {
-      const d20 = result?.roll?.dice?.find?.(d => d?.faces === 20);
-      const val = d20?.results?.[0]?.result;
-      return Number.isFinite(val) ? val : null;
-    })();
-
-    if (nat === 20) degree = Math.min(3, degree + 1);
-    if (nat === 1)  degree = Math.max(0, degree - 1);
-
-    return degree;
+    const dcForDos = (ctx?._dcStrike ?? ctx.dc) || 20;
+    const dos = game.pf2e.Check.degreeOfSuccess(result.total, dcForDos, { modifier: 0 });
+    return dos; // 0 CF,1 F,2 S,3 CS
   }
 
 
@@ -98,7 +79,7 @@ export class PF2eAdapter {
     const isCrit = tacticalRisk && (degree === 0 || degree === 3);
     if (isCrit) {
       // Don't apply riders, triggers, or defaults on crit; PF2e handles it from the Strike card.
-      return { crit: degree === 3 ? "critical-success" : "critical-failure" };
+       return { applied: "draw from deck", crit: degree === 3 ? "critical-success" : "critical-failure" };
     }
 
     // If no Tactical Risk, CCS applies nothing.
@@ -256,8 +237,10 @@ export class PF2eAdapter {
   async rollAsStrike(ctx) {
     const actor = ctx.actor;
     const stat  = ctx.stat; // chosen skill Statistic/Check
-    if (!actor || !stat) {
-      ui.notifications?.warn("PF2e: No actor/statistic to roll as a Strike.");
+    const target = ctx.target;
+
+    if (!actor || !stat || !target) {
+      ui.notifications?.warn("PF2e: No actor/target/statistic to roll as a Strike.");
       return null;
     }
 
@@ -275,8 +258,7 @@ export class PF2eAdapter {
     }
 
     // 2) Work out the desired attack mod = chosen skill’s mod (+ cool bonus unless swapped for advantage)
-    let skillMod =
-      Number(stat?.check?.mod ?? stat?.mod ?? 0) || 0;
+    let skillMod = Number(stat?.check?.mod ?? stat?.mod ?? 0) || 0;
 
     const currentAttack =
       Number(strike?.totalModifier ?? strike?.attack?.totalModifier ?? strike?.mod ?? 0) || 0;
@@ -288,6 +270,14 @@ export class PF2eAdapter {
       const delta = skillMod - currentAttack;
       if (delta) mods.push(new Mod({ label: "Stunt (skill→strike)", modifier: delta, type: "untyped" }));
       if (ctx.coolBonus) mods.push(new Mod({ label: "Stunt (cool)", modifier: Number(ctx.coolBonus) || 0, type: "circumstance" }));
+
+      const targetAC = Number(target?.system?.attributes?.ac?.value ?? target?.attributes?.ac?.value ?? 0) || 0;
+      const dcAdj = (ctx.dc && targetAC) ? (ctx.dc - targetAC) : 0;
+      if (dcAdj) mods.push(new Mod({ label: "Stunt (defense map)", modifier: dcAdj, type: "untyped" }));
+
+      // save for DoS/chat
+      ctx._dcStrike = targetAC;
+      ctx._dcAdj    = dcAdj;
     }
 
     // 3) Roll as a Strike (produces a native PF2e attack chat card)

@@ -164,48 +164,8 @@ export async function openStuntDialog({ token, actor } = {}) {
       update();
     } catch (_) { /* non-PF2 or row missing: ignore */ }
 
-    return; // prevent V1 fallback
+    return; 
   }
-
-  // Fallback to V1 Dialog (keeps working on older cores)
-  new Dialog({
-    title: "Creative Stunt",
-    content,
-    buttons: {
-      roll: {
-        label: "Roll",
-        callback: (html) => {
-          const coolStr  = (html.find('[name="cool"]').val() || "none");
-          const coolTier = coolStr === "full" ? 2 : coolStr === "light" ? 1 : 0;
-          const rollKind = (html.find('[name="rollKind"]').val() || "skill").toLowerCase();
-          const rollKey  = (html.find('[name="rollKey"]').val()  || "acr").toLowerCase();
-
-          const tacticalRisk = html.find('[name="risk"]').is(":checked");
-          const plausible    = html.find('[name="plausible"]').is(":checked");
-          let chooseAdvNow   = html.find('[name="advNow"]').is(":checked");
-          if (coolTier < 2) chooseAdvNow = false;
-
-          const spendPoolNow = html.find('[name="spendPool"]').is(":checked");
-          const triggerId    = html.find('[name="trigger"]').val() || null;
-
-          game.ccf.rollStunt({
-            actor,
-            target,
-            options: { rollKind, rollKey, coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId }
-          });
-        }
-      },
-      cancel: { label: "Cancel" }
-    },
-    default: "roll",
-    render: (html) => {
-      const row = html.find("#ccs-adv-row");
-      if (!row.length) return;
-      const update = () => row.toggle((html.find('[name="cool"]').val() || "") === "full");
-      html.find('[name="cool"]').on("change", update);
-      update();
-    }
-  }).render(true);
 }
 
 export async function openPoolConfig() {
