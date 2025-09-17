@@ -128,72 +128,55 @@ export async function openStuntDialog({ token, actor } = {}) {
 
   const D2 = foundry?.applications?.api?.DialogV2;
 
-  if (D2) {
-    let dlg;
-    const buttons = [
-      {
-        id: "roll",
-        label: "Roll",
-        callback: () => {
-          const root = dlg.element;
-          const q = (sel) => root.querySelector(sel);
-
-          const coolStr  = (q('[name="cool"]')?.value || "none");
-          const coolTier = coolStr === "full" ? 2 : coolStr === "light" ? 1 : 0;
-
-          const tacticalRisk = q('[name="risk"]')?.checked ?? false;
-          const plausible    = q('[name="plausible"]')?.checked ?? false;
-
-          let chooseAdvNow   = q('[name="advNow"]')?.checked ?? false;
-          if (coolTier < 2) chooseAdvNow = false;
-
-          const spendPoolNow = q('[name="spendPool"]')?.checked ?? false;
-          const triggerId    = q('[name="trigger"]')?.value || null;
-
-          game.ccf.rollStunt({
-            actor, target,
-            options: { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId }
-          });
-        }
-      },
-      { id: "cancel", label: "Cancel", callback: () => {} },
-    ];
-
-    dlg = new D2({
-      window: { title: "Creative Stunt" },
+  if (D2 && typeof openSimpleDialogV2 === "function") {
+    let dlg; // so callbacks can see the element
+    dlg = openSimpleDialogV2({
+      title: "Creative Stunt",
       content,
-      buttons,                 // <-- array, not object
-      defaultId: "roll",       // <-- must match an id in buttons
+      defaultId: "roll",
+      buttons: [
+        {
+          id: "roll",
+          label: "Roll",
+          callback: () => {
+            const root = dlg.element;
+            const q = (sel) => root.querySelector(sel);
+            const coolStr  = (q('[name="cool"]')?.value || "none");
+            const coolTier = coolStr === "full" ? 2 : coolStr === "light" ? 1 : 0;
+            const tacticalRisk = q('[name="risk"]')?.checked ?? false;
+            const plausible    = q('[name="plausible"]')?.checked ?? false;
+            let chooseAdvNow   = q('[name="advNow"]')?.checked ?? false;
+            if (coolTier < 2) chooseAdvNow = false;
+            const spendPoolNow = q('[name="spendPool"]')?.checked ?? false;
+            const triggerId    = q('[name="trigger"]')?.value || null;
+            game.ccf.rollStunt({
+              actor, target,
+              options: { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId }
+            });
+          }
+        },
+        { id: "cancel", label: "Cancel", callback: () => {} },
+      ],
     });
 
-    // Robust attach for DialogV2: wait until nodes exist, then wire toggle
-    function waitFor(sel, { tries = 20, interval = 25 } = {}) {
-      return new Promise((resolve, reject) => {
+    // Robustly wire the PF2 "Use advantage..." row
+    const waitFor = (sel, tries = 20) => new Promise((res, rej) => {
       let n = 0;
       const tick = () => {
-       const el = dlg?.element?.querySelector?.(sel);
-       if (el) return resolve(el);
-       if (++n > tries) return reject(new Error(`not found: ${sel}`));
-       setTimeout(tick, interval);
+        const el = dlg?.element?.querySelector?.(sel);
+        if (el) return res(el);
+        if (++n > tries) return rej();
+        setTimeout(tick, 25);
       };
       tick();
-      });
-    }
-
-    dlg.render(true);
+    });
     try {
-      // Wait for both elements to exist
       const cool   = await waitFor('[name="cool"]');
       const advRow = await waitFor('#ccs-adv-row');
-      const update = () => {
-        const v = cool.value;
-        advRow.style.display = (v === "full" || v === "2") ? "" : "none";
-      };
+      const update = () => { advRow.style.display = (cool.value === "full" || cool.value === "2") ? "" : "none"; };
       cool.addEventListener("change", update);
-      update(); // initial state
-    } catch (_) {
-      // Silently skip if template omitted the row (e.g., non-PF2)
-    }
+      update();
+    } catch (_) { /* non-PF2 or row missing: ignore */ }
     
     return; // prevent V1 fallback
   }
