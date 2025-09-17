@@ -72,23 +72,8 @@ export function registerUI() {
       btn.addEventListener("click", async (ev) => {
         const isFailure = ev.currentTarget?.dataset?.fail === "true";
         try {
-          const decks = game.pf2e?.criticalDecks ?? game.pf2e?.criticalDeck ?? null;
-          if (!decks) return ui.notifications?.info("PF2e crit deck API not detected.");
-
-          // Try common signatures in order
-          let ok = false;
-          if (typeof decks.draw === "function") {
-            try { await decks.draw({ type: "attack", isFailure }); ok = true; } catch {}
-            if (!ok) try { await decks.draw(isFailure ? "criticalFailure" : "criticalSuccess"); ok = true; } catch {}
-          }
-          if (!ok && typeof decks.drawCard === "function") {
-            try { await decks.drawCard({ type: "attack", isFailure }); ok = true; } catch {}
-          }
-          if (!ok && typeof game.pf2e?.drawCriticalCard === "function") {
-            try { await game.pf2e.drawCriticalCard("attack", isFailure ? "criticalFailure" : "criticalSuccess"); ok = true; } catch {}
-          }
-
-          if (!ok) ui.notifications?.warn("Could not draw a crit card (no compatible API).");
+          const ok = await drawCritCard({ type: "attack", isFailure });
+          if (!ok) return; // notification already shown in helper
         } catch (e) {
           console.error("CCS: Crit deck draw failed", e);
           ui.notifications?.error("Failed to draw crit card.");
@@ -96,8 +81,6 @@ export function registerUI() {
       }, { once: true }); // avoid duplicate bindings on re-render
     });
   });
-
-
 
   // Expose API after ready
   Hooks.once("ready", () => {

@@ -12,12 +12,12 @@ Hooks.once("init", () => {
     hint:"PF2e only. Players may declare roll-twice-keep-higher once per combat instead of a +2 Cool bonus."
   });
   game.settings.register("creative-combat-stunts","successRiders",{
-    scope:"world", config:true, type:String, default:"flat-footed:1, frightened:1, prone, clumsy:1",
+    scope:"world", config:true, type:String, default:"off-guard, frightened:1, prone, clumsy:1",
     name:"Default Success Rider Menu (PF2e)",
     hint:"PF2e only. Comma-separated PF2e conditions with optional :value."
   });
   game.settings.register("creative-combat-stunts","failureSetbacks",{
-    scope:"world", config:true, type:String, default:"prone, drop-item, off-guard:1, stunned:1",
+    scope:"world", config:true, type:String, default:"prone, drop-item, off-guard, stunned:1",
     name:"Default Failure Setback Menu (PF2e)",
     hint:"PF2e only. Comma-separated entries; for conditions use PF2e slugs."
   });

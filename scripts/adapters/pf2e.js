@@ -136,7 +136,7 @@ export class PF2eAdapter {
     if (isCrit) {
       const choice = await openCritPrompt({isFailure: degree===0});
       if (choice === "deck") {
-        await this.drawCritCard("attack", degree===0);
+        await this.drawCritCard({ type: "attack", isFailure: degree === 0 });
       } else {
         const sel = await chooseRiderDialog(degree===0 ? "failure" : "success");
         if (sel) await this.applyConfiguredEffect(degree===0 ? actor : target, sel, degree!==0);
@@ -200,8 +200,8 @@ export class PF2eAdapter {
     for (const ap of applyList) {
       if (ap.type === "condition") {
         await this.applyCondition(target, ap.value, ap.amount ?? null);
-      } else if (ap.type === "offGuard" && ap.value) {
-        await this.applyCondition(target, "flat-footed", 1);
+      } else if (ap.type === "off-guard" && ap.value) {
+        await this.applyCondition(target, "off-guard");
       } else if (ap.type === "acMod") {
         const modType = ap.modType || "circumstance";
         rules.push({ key: "FlatModifier", selector: "ac", type: modType, value: ap.value ?? -2, label: trigger.label || "CCS Trigger" });
@@ -243,7 +243,7 @@ export class PF2eAdapter {
         await cm.addCondition(slug, actor, { value });
         return;
       }
-      
+
       // Older APIs on the actor
       if (typeof actor?.increaseCondition === "function") {
         await actor.increaseCondition(slug, value != null ? { value } : undefined);
@@ -261,16 +261,6 @@ export class PF2eAdapter {
     } catch (e) {
       console.warn("CCS: Failed to apply condition", slug, e);
       ui.notifications?.warn(`CCS: Could not apply condition ${slug}.`);
-    }
-  }
-
-  async drawCritCard(type="attack", isFailure=false){
-    try {
-      const deckAPI = game.pf2e?.criticalDecks ?? game.pf2e?.criticalDeck;
-      if (deckAPI?.draw) return await deckAPI.draw({type, isFailure});
-      ui.notifications?.info("Draw a crit card (GM): no deck API detected.");
-    } catch(e){
-      console.warn("CCS: Crit deck draw failed", e);
     }
   }
 
@@ -309,5 +299,59 @@ export class PF2eAdapter {
   async applyTacticalUpgrade(degree, ctx) {
     return degree;
   }
+
+  async drawCritCard({ type = "attack", isFailure = false } = {}) {
+  const outcome = isFailure ? "criticalFailure" : "criticalSuccess";
+
+  // Common PF2e system APIs in various versions
+  const decks = game.pf2e?.criticalDecks ?? game.pf2e?.criticalDeck ?? null;
+  try {
+    if (decks?.draw) {
+      // Newer signature
+      await decks.draw({ type, isFailure });
+      return true;
+    }
+  } catch {}
+  try {
+    if (decks?.draw) {
+      // Older signature variant
+      await decks.draw(outcome);
+      return true;
+    }
+  } catch {}
+  try {
+    if (typeof decks?.drawCard === "function") {
+      await decks.drawCard({ type, isFailure });
+      return true;
+    }
+  } catch {}
+
+  // Some installs expose a top-level fn
+  try {
+    if (typeof game.pf2e?.drawCriticalCard === "function") {
+      // Try object form
+      await game.pf2e.drawCriticalCard({ type, outcome });
+      return true;
+    }
+  } catch {}
+  try {
+    if (typeof game.pf2e?.drawCriticalCard === "function") {
+      // Try positional form
+      await game.pf2e.drawCriticalCard(type, outcome);
+      return true;
+    }
+  } catch {}
+
+  // As a last resort, log what we can see to the console to tune detection
+  console.warn("CCS: No matching crit deck API. Available on game.pf2e:", {
+    hasCriticalDecks: !!game.pf2e?.criticalDecks,
+    hasCriticalDeck: !!game.pf2e?.criticalDeck,
+    keysCriticalDecks: game.pf2e?.criticalDecks ? Object.keys(game.pf2e.criticalDecks) : null,
+    keysCriticalDeck: game.pf2e?.criticalDeck ? Object.keys(game.pf2e.criticalDeck) : null,
+    hasDrawCriticalCard: typeof game.pf2e?.drawCriticalCard === "function",
+  });
+  ui.notifications?.warn("Draw a crit card (GM): no compatible deck API detected.");
+  return false;
+}
 
 }

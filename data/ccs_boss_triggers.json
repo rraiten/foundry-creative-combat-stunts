@@ -33,7 +33,7 @@
       "durationRounds": 1,
       "apply": [
         {
-          "type": "offGuard",
+          "type": "off-guard",
           "value": true
         },
         {
@@ -62,7 +62,7 @@
           "value": "Attack of Opportunity"
         },
         {
-          "type": "offGuard",
+          "type": "off-guard",
           "value": true
         },
         {
