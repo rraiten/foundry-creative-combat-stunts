@@ -62,17 +62,7 @@ export class PF2eAdapter {
   }
 
   async roll(ctx){
-    const stat = ctx?.stat ?? this.pickStatistic(ctx?.actor, ctx?.rollKind, ctx?.rollKey);
-    const Mod = game.pf2e?.Modifier ?? game.pf2e?.modifiers?.Modifier;
-    const rollOpts = { createMessage: false };
-    if (ctx.rollTwice === "keep-higher") rollOpts.rollTwice = "keep-higher";
-    if (ctx.coolBonus && Mod) {
-      rollOpts.modifiers = [
-        new Mod({ label: "Cool", modifier: Number(ctx.coolBonus) || 0, type: "circumstance" })
-      ];
-    }
-    const r = await stat.roll(rollOpts);
-    return { total: r?.total ?? 0, formula: r?.formula ?? "d20", roll: r };
+    return await this.rollAsStrike(ctx);
   }
 
   async degreeOfSuccess(result, ctx) {
@@ -103,45 +93,43 @@ export class PF2eAdapter {
   }
 
 
-  async applyOutcome({actor, target, ctx, degree, tacticalRisk}){
-    const isCrit = (degree === 0 || degree === 3) && tacticalRisk;
+  async applyOutcome({ actor, target, ctx, degree, tacticalRisk }) {
+    // Treat only crit + Tactical Risk as special; let PF2e Strike/crit-deck handle the outcome.
+    const isCrit = tacticalRisk && (degree === 0 || degree === 3);
     if (isCrit) {
-      const choice = await openCritPrompt({isFailure: degree===0});
-      if (choice === "deck") {
-        await this.drawCritCard({ type: "attack", isFailure: degree === 0 });
-      } else {
-        const sel = await chooseRiderDialog(degree===0 ? "failure" : "success");
-        if (sel) await this.applyConfiguredEffect(degree===0 ? actor : target, sel, degree!==0);
-      }
+      // Don't apply riders, triggers, or defaults on crit; PF2e handles it from the Strike card.
+      return { crit: degree === 3 ? "critical-success" : "critical-failure" };
     }
 
+    // If no Tactical Risk, CCS applies nothing.
     if (!tacticalRisk) return null;
 
+    // Non-crit outcomes with Tactical Risk
     if (degree >= 2) {
+      // Success: trigger if configured, else rider, else default off-guard
       if (ctx.trigger) {
         await this.applyTriggerEffect(target, ctx.trigger, degree);
         return { targetEffect: ctx.trigger.label };
-      } else {
-        const sel = await chooseRiderDialog("success");
-        if (sel) {
-          await this.applyConfiguredEffect(target, sel, true);
-          return { targetEffect: sel };
-        } else {
-          await this.applyCondition(target, "off-guard");
-          return { targetEffect: "off-guard (default)" };
-        }
       }
+      const sel = await chooseRiderDialog("success");
+      if (sel) {
+        await this.applyConfiguredEffect(target, sel, true);
+        return { targetEffect: sel };
+      }
+      await this.applyCondition(target, "off-guard");
+      return { targetEffect: "off-guard (default)" };
     } else {
+      // Failure (non-crit): rider on self or default prone
       const sel = await chooseRiderDialog("failure");
       if (sel) {
         await this.applyConfiguredEffect(actor, sel, false);
         return { selfEffect: sel };
-      } else {
-        await this.applyCondition(actor, "prone");
-        return { selfEffect: "prone (default)" };
       }
+      await this.applyCondition(actor, "prone");
+      return { selfEffect: "prone (default)" };
     }
   }
+
 
   parseEntry(entry){
     const t = (entry||"").trim();
@@ -266,70 +254,118 @@ export class PF2eAdapter {
     return degree;
   }
 
-  async drawCritCard({ type = "attack", isFailure = false } = {}) {
-    const outcome = isFailure ? "criticalFailure" : "criticalSuccess";
-
-    /* 1) PF2e APIs (several versions) */
-    try {
-      const decks = game.pf2e?.criticalDecks ?? game.pf2e?.criticalDeck ?? null;
-
-      if (decks?.draw) {
-        try { await decks.draw({ type, isFailure }); console.debug("CCS crit: pf2e.decks.draw(obj)"); return true; } catch {}
-        try { await decks.draw(outcome);              console.debug("CCS crit: pf2e.decks.draw(outcome)"); return true; } catch {}
-      }
-      if (typeof decks?.drawCard === "function") {
-        try { await decks.drawCard({ type, isFailure }); console.debug("CCS crit: pf2e.decks.drawCard(obj)"); return true; } catch {}
-      }
-      if (typeof game.pf2e?.drawCriticalCard === "function") {
-        try { await game.pf2e.drawCriticalCard({ type, outcome }); console.debug("CCS crit: pf2e.drawCriticalCard(obj)"); return true; } catch {}
-        try { await game.pf2e.drawCriticalCard(type, outcome);     console.debug("CCS crit: pf2e.drawCriticalCard(args)"); return true; } catch {}
-      }
-    } catch {/* noop */}
-
-    /* 2) Foundry Cards fallback */
-    try {
-      const all = Array.from(game.cards?.contents ?? []);
-      // Prefer localized names; then English; then any deck containing "Critical"
-      const nameHit    = game.i18n?.localize?.("PF2E.CritDeck.Hit")    || "Critical Hit Deck";
-      const nameFumble = game.i18n?.localize?.("PF2E.CritDeck.Fumble") || "Critical Fumble Deck";
-      const wantExact  = isFailure ? nameFumble : nameHit;
-
-      let deck =
-        game.cards?.getName?.(wantExact) ||
-        game.cards?.getName?.(isFailure ? "Critical Fumble Deck" : "Critical Hit Deck") ||
-        all.find(d => /critical/i.test(d?.name || "") && (isFailure ? /fumble/i : /hit/i).test(d.name)) ||
-        all.find(d => /critical/i.test(d?.name || ""));
-
-      if (deck) {
-        // Try programmatic draw first (GM usually allowed):
-        if (typeof deck.draw === "function") {
-          try {
-            await deck.draw(1, { rollMode: game.settings.get("core", "rollMode") });
-            console.debug("CCS crit: Cards.draw(1) from", deck.name);
-            return true;
-          } catch (e) {
-            console.debug("CCS crit: Cards.draw failed, falling back to drawDialog()", e);
-          }
-        }
-        // If draw() isn’t permitted or throws, let the user click via dialog:
-        if (typeof deck.drawDialog === "function") {
-          await deck.drawDialog();
-          console.debug("CCS crit: Cards.drawDialog() from", deck.name);
-          return true;
-        }
-      }
-      console.warn("CCS: Cards fallback found no usable deck.", { cardDecks: all.map(d => d.name) });
-    } catch (e) {
-      console.warn("CCS: Cards fallback threw", e);
+  /**
+   * Roll the stunt as a temporary Strike so PF2e's "Use Critical Decks" hooks can trigger.
+   * - Matches the chosen skill bonus
+   * - Cleans up the temp weapon after rolling
+   * Returns a result object { total, formula, roll } like your normal roll().
+   */
+  async rollAsStrike(ctx) {
+    const actor = ctx.actor;
+    const skill = ctx.stat;                   // You already resolved this from the chosen skill
+    if (!actor || !skill?.check?.roll && !skill?.roll) {
+      ui.notifications?.warn("PF2e: Could not resolve the chosen skill to convert into a Strike.");
+      return null;
     }
 
-    /* 3) Nothing matched */
-    console.warn("CCS: No crit-deck API or Cards deck matched.", {
-      pf2eHasCriticalDecks: !!game.pf2e?.criticalDecks,
-      pf2eHasCriticalDeck:  !!game.pf2e?.criticalDeck,
-      cardsCount: game.cards?.size ?? (game.cards?.contents?.length || 0)
-    });
-    ui.notifications?.warn("Draw a crit card (GM): no compatible deck API or deck found.");
-    return false;
+    // Figure the total attack modifier we want the Strike to have
+    // Ask PF2e for the current skill total by doing a silent test roll of the check modifier
+    // (cheaper than building proficiency math ourselves)
+    let skillMod = 0;
+    try {
+      // Many skills expose .check.mod or .mod; else get modifier from a silent roll's total - d20
+      // Prefer reading the modifier directly if available:
+      skillMod = Number(skill?.check?.mod ?? skill?.mod ?? 0);
+      if (!skillMod) {
+        // Silent roll to compute the modifier (minus the die result)
+        const tmp = await (skill.check?.roll?.({ createMessage: false }) ?? skill.roll?.({ createMessage: false }));
+        if (tmp) {
+          // The first die is a d20; subtract to get the static modifier
+          const d20 = tmp.dice?.[0]?.total ?? 10;
+          skillMod = (tmp.total ?? d20) - d20;
+        }
+      }
+    } catch {
+      /* ignore, fallback to 0 already set */
+    }
+
+    // Create a very simple temporary weapon item (melee, no damage importance)
+    const weaponData = {
+      type: "weapon",
+      name: "CCS Stunt Strike (temp)",
+      system: {
+        category: "simple",
+        group: "knife",
+        damage: { dice: 0, die: "d4", damageType: "bludgeoning", modifier: 0 }, // irrelevant
+        bonus: { value: 0 },            // base item bonus 0; we inject the skill via a RuleElement below
+        traits: { value: ["unarmed"] },
+        range: { value: null },
+        melee: true
+      }
+    };
+
+    let temp;
+    try {
+      const created = await actor.createEmbeddedDocuments("Item", [weaponData], { temporary: false });
+      temp = created?.[0];
+      if (!temp) throw new Error("Temp weapon not created");
+
+      // Add a temporary rule to make its attack roll = chosen skill modifier (+ any Stunt bonuses)
+      // We use an ephemeral Effect via your existing helper to avoid mutating the item schema.
+      const Mod = game.pf2e?.Modifier ?? game.pf2e?.modifiers?.Modifier;
+
+      const mods = [];
+      if (Mod) {
+        // skill-based modifier
+        mods.push(new Mod({ label: "Stunt (skill)", modifier: Number(skillMod) || 0, type: "untyped" }));
+        // circumstance from Flavor (already in ctx.coolBonus if not swapped for advantage)
+        if (ctx.coolBonus) mods.push(new Mod({ label: "Stunt (cool)", modifier: Number(ctx.coolBonus) || 0, type: "circumstance" }));
+      }
+
+      // Build roll options for an attack roll
+      const rollOpts = { createMessage: true, // let PF2e post the Strike card
+                        skipDialog: true };
+
+      if (ctx.rollTwice === "keep-higher") rollOpts.rollTwice = "keep-higher";
+      if (mods.length) rollOpts.modifiers = mods;
+
+      // Find the strike action for this item
+      // Depending on PF2e version, access can differ; try a few common shapes:
+      let attackFn = temp?.system?.actions?.[0]?.attack
+                  ?? temp?.system?.strikes?.[0]?.attack
+                  ?? temp?.system?.actions?.[0]?.variants?.[0]?.roll;
+
+      if (typeof attackFn !== "function") {
+        // Fallback: use Statistic attack context if exposed
+        const strikes = actor.system?.actions ?? actor.system?.strikes ?? [];
+        const strike = strikes.find(s => s?.item?.id === temp.id);
+        attackFn = strike?.attack ?? strike?.variants?.[0]?.roll ?? null;
+      }
+
+      if (typeof attackFn !== "function") {
+        ui.notifications?.warn("PF2e: Could not access a Strike roll function for the temp weapon.");
+        return null;
+      }
+
+      // Roll the attack as a normal Strike (this produces the PF2e strike chat card)
+      const r = await attackFn.call(temp, rollOpts);
+
+      // Normalize a result object for your pipeline
+      const result = { total: r?.total ?? r?.roll?.total ?? 0,
+                      formula: r?.formula ?? r?.roll?.formula ?? "d20",
+                      roll: r?.roll ?? r };
+
+      return result;
+    } catch (e) {
+      console.warn("CCS: Stunt Strike failed", e);
+      ui.notifications?.warn("CCS: Could not roll a Stunt Strike.");
+      return null;
+    } finally {
+      // Clean up the temp weapon
+      if (temp?.id) {
+        try { await actor.deleteEmbeddedDocuments("Item", [temp.id]); } catch { /* ignore */ }
+      }
+    }
   }
+
 }

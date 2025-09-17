@@ -65,23 +65,6 @@ export function registerUI() {
     (col.length ? col : html).append(btn);
   });
 
-  Hooks.on("renderChatMessage", (_msg, html) => {
-    // Support jQuery or raw element
-    const root = html instanceof jQuery ? html[0] : html;
-    root.querySelectorAll(".ccs-crit-draw").forEach(btn => {
-      btn.addEventListener("click", async (ev) => {
-        const isFailure = ev.currentTarget?.dataset?.fail === "true";
-        try {
-          const ok = await game?.ccf?.adapter?.drawCritCard?.({ type: "attack", isFailure });
-          if (!ok) return; // notification already shown in helper
-        } catch (e) {
-          console.error("CCS: Crit deck draw failed", e);
-          ui.notifications?.error("Failed to draw crit card.");
-        }
-      }, { once: true }); // avoid duplicate bindings on re-render
-    });
-  });
-
   // Expose API after ready
   Hooks.once("ready", () => {
     const mod = game.modules.get("foundry-creative-combat-stunts");
@@ -421,8 +404,7 @@ export async function openCritPrompt({ isFailure = false } = {}) {
         title: isFailure ? "Critical Failure" : "Critical Success",
         content: `<p>Pick how to resolve the critical.</p>`,
         buttons: [
-          { action: "deck",  label: "Draw Crit Card", default: true, callback: () => resolve("deck")  },
-          { action: "rider", label: "Pick Rider",                    callback: () => resolve("rider") },
+          { action: "rider", label: "Pick Effect",                   callback: () => resolve("rider") },
           { action: "cancel",label: "Cancel",                        callback: () => resolve(null)    },
         ],
         defaultId: "deck",

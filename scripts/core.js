@@ -87,14 +87,6 @@ export class CCF {
     const degrees = ["Critical Failure","Failure","Success","Critical Success"];
     const degreeTxt = (degree != null && degrees[degree]) ? degrees[degree] : (result?.outcome || "—");
     const extra = [];
-
-    // Compute crit flags here (so template controls work and no ReferenceError)
-    const isCrit = degree === 0 || degree === 3;
-    const showCritControls = isCrit && !!ctx?.tacticalRisk;
-    const critIsFailure = degree === 0;
-
-    if (isCrit) extra.push(critIsFailure ? "💥 Critical Failure" : "💥 Critical Success");
-
     if (advUsed && ctx.rollTwice === "keep-higher") extra.push("🎲 Advantage consumed");
     if (poolSpent) extra.push("🎬 Cinematic Pool spent (+1 degree/upgrade)");
 
@@ -108,8 +100,6 @@ export class CCF {
       spentPool: poolSpent ? true : false,
       triggerLabel: ctx.trigger?.label || null,
       logExtras: extra.join(" • "),
-      showCritControls,
-      critIsFailure,
     });
     ChatMessage.create({speaker: ChatMessage.getSpeaker({actor}), content});
   }
