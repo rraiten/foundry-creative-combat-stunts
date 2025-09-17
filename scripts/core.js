@@ -48,6 +48,7 @@ export class CCF {
 
     const ctx = await this.adapter.buildContext({actor, target, options});
     ctx.chooseAdvNow = chooseAdvNow;
+    ctx.tacticalRisk = !!tacticalRisk;  // available both in ctx and as argument
 
     // Let adapter map Cool/Tactical to native mechanics
     await this.adapter.applyPreRollAdjustments(ctx, {coolTier, plausible, chooseAdvNow, tacticalRisk});
@@ -64,7 +65,7 @@ export class CCF {
     degree = await this.adapter.applyTacticalUpgrade(degree, ctx);
 
     // Apply outcomes (riders/effects)
-    const applied = await this.adapter.applyOutcome({actor, target, ctx, degree});
+    const applied = await this.adapter.applyOutcome({actor, target, ctx, degree, tacticalRisk});
 
     // Chat
     await this.postChat({actor, target, ctx, result, applied, degree, poolSpent, advUsed: chooseAdvNow});
@@ -77,7 +78,7 @@ export class CCF {
     if (advUsed && ctx.rollTwice === "keep-higher") extra.push("🎲 Advantage consumed");
     if (poolSpent) extra.push("🎬 Cinematic Pool spent (+1 degree/upgrade)");
 
-    const content = await renderTemplate("modules/creative-combat-stunts/templates/chat-card.hbs",{
+    const content = await foundry.applications.handlebars.renderTemplate("modules/creative-combat-stunts/templates/chat-card.hbs",{
       actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
       total: result.total, formula: result.formula, dc: ctx.dc,
       rollTooltip: (await result?.roll?.getTooltip?.()) ?? null,

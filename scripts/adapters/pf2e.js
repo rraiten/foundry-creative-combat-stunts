@@ -255,6 +255,11 @@ export class PF2eAdapter {
   // Map Flavor + Advantage into PF2e roll context
   async applyPreRollAdjustments(ctx, { coolTier, chooseAdvNow }) {
     // Flavor → circumstance bonus
+    // Normalize: accept "none"|"light"|"full" or 0|1|2
+    const tier = (typeof coolTier === "string") ? (coolTier === "full" ? 2 : coolTier === "light" ? 1 : 0)
+    : Number(coolTier ?? 0);
+    ctx.coolBonus = tier;
+
     ctx.coolBonus = 0;
     if (coolTier === 1) ctx.coolBonus = 1;          // Nice or Repeating
     else if (coolTier === 2) ctx.coolBonus = 2;     // So Cool
@@ -263,6 +268,7 @@ export class PF2eAdapter {
     if (chooseAdvNow) {
       if (game.combat) {
         ctx.rollTwice = "keep-higher";
+        ctx.coolBonus = 0;
       } else {
         ui.notifications.warn("Advantage is only available during an active combat.");
       }

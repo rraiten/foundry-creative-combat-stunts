@@ -41,27 +41,30 @@ export function registerUI() {
 
   // Combat tracker footer button
   Hooks.on("renderCombatTracker", (_app, element) => {
-    const $el = $(element);
+    const $el = element instanceof jQuery ? element : $(element);
     $el.find(".ccs-pool-button").remove();
     const $btn = $(
       `<button type="button" class="ccs-pool-button">
          <i class="fas fa-bolt"></i> Cinematic Pool
        </button>`
     ).on("click", () => openPoolConfig());
-    $el.find(".directory-footer").append($btn);
+    const mount = $el.find(".directory-footer, .sidebar-tab .footer").first();
++  (mount.length ? mount : $el).append($btn); 
   });
 
   // Token HUD button (v12/13 safe)
-  Hooks.on("renderTokenHUD", (app, html) => {
+  Hooks.on("renderTokenHUD", (app, htmlArg) => {
+    const html = htmlArg instanceof jQuery ? htmlArg : $(htmlArg); // normalize
+    if (!html?.length) return;
     const token = app?.object;
     if (!token?.document) return;
-    const $btn = $(
-      `<div class="control-icon ccs" title="Creative Combat Stunts">
-         <i class="fas fa-bolt"></i>
-       </div>`
-    ).on("click", () => openStuntDialog({ token }));
-    html.find(".col.right").append($btn);
+    html.find(".control-icon.ccs").remove(); // idempotent
+    const btn = $(`<div class="control-icon ccs" title="Creative Combat Stunts"><i class="fas fa-bolt"></i></div>`)
+      .on("click", () => openStuntDialog({ token }));
+    const col = html.find(".col.right, .col").last();
+    (col.length ? col : html).append(btn);
   });
+
 
   // Expose API after ready
   Hooks.once("ready", () => {
@@ -91,12 +94,12 @@ export async function openStuntDialog({ token, actor } = {}) {
   // Build skill choices dynamically from the actor
   const skills = getSkillChoices(actor, sys);
 
-  const content = await renderTemplate(
+  const content = await foundry.applications.handlebars.renderTemplate(
     "modules/creative-combat-stunts/templates/stunt-dialog.hbs",
     {
       actor,
       targetName: target?.name ?? "(none)",
-      pf2eAdvOnce,
+      isPF2: (sys === "pf2e"),
       poolEnabled: !!pool?.enabled,
       poolRemaining: pool?.remaining ?? 0,
       triggers,
@@ -115,10 +118,15 @@ export async function openStuntDialog({ token, actor } = {}) {
       roll: {
         label: "Roll",
         callback: (html) => {
-          const coolTier = html.find('[name="cool"]').val();
+          const coolStr = (html.find('[name="cool"]').val() || "none"); // "none" | "light" | "full"
+          const coolTier = (coolStr === "full" ? 2 : coolStr === "light" ? 1 : 0); // number 0/1/2
           const tacticalRisk = html.find('[name="risk"]').is(":checked");
           const plausible = html.find('[name="plausible"]').is(":checked");
-          const chooseAdvNow = html.find('[name="advNow"]').is(":checked");
+          
+          // PF2 checkbox is visible only when “full”; if user somehow toggled it and then changed away, ignore it.
+          let chooseAdvNow = html.find('[name="advNow"]').is(":checked");
+          if (coolTier < 2) chooseAdvNow = false;  // only valid on “So Cool”
+
           const spendPoolNow = html.find('[name="spendPool"]').is(":checked");
           const triggerId = html.find('[name="trigger"]').val() || null;
 
@@ -141,10 +149,8 @@ export async function openStuntDialog({ token, actor } = {}) {
       // PF2-only: show advantage swap ONLY when cool tier == 2
       const $row = html.find("#ccs-adv-row");
       if (!$row.length) return;
-        const update = () => {
-        const tier = Number(html.find('[name="cool"]').val() ?? 0);
-        $row.toggle(tier === 2);
-      };
+      
+      const update = () => { $row.toggle((html.find('[name="cool"]').val() || "") === "full"); };
       html.find('[name="cool"]').on("change", update);
       update(); // initial
     }
