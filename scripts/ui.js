@@ -316,49 +316,108 @@ function getSkillChoices(actor, sysId) {
 }
 
 export async function chooseRiderDialog(kind = "success") {
-  return new Promise((resolve) => {
-    openSimpleDialog({
+  // Use V2 if available
+  if (foundry?.applications?.api?.DialogV2) {
+    return new Promise(resolve => {
+      const content = `
+        <p>Select a rider or cancel to use the default.</p>
+        <input type="text" name="rider" placeholder="e.g., prone, frightened:1, drop-item" style="width:100%"/>
+      `;
+      // Create first so callbacks can reference it
+      let dlg = null;
+      const buttons = [
+        {
+          id: "ok",
+          label: "Apply",
+          callback: () => {
+            const val = dlg?.element?.querySelector?.('[name="rider"]')?.value?.trim() || null;
+            resolve(val);
+          }
+        },
+        { id: "cancel", label: "Cancel", callback: () => resolve(null) }
+      ];
+      dlg = openSimpleDialogV2({
+        title: `Choose Rider (${kind})`,
+        content,
+        buttons,
+        defaultId: "ok",
+      });
+    });
+  }
+
+  // V1 fallback
+  return new Promise(resolve => {
+    new Dialog({
       title: `Choose Rider (${kind})`,
-      content: `<p>Select a rider or cancel to use the default.</p>
-        <input type="text" name="rider" placeholder="e.g., prone, frightened:1, drop-item" style="width:100%"/>`,
+      content: `
+        <p>Select a rider or cancel to use the default.</p>
+        <input type="text" name="rider" placeholder="e.g., prone, frightened:1, drop-item" style="width:100%"/>
+      `,
       buttons: {
-        ok: { label: "Apply", callback: (html) => resolve(html.find('[name="rider"]').val()?.trim() || null) },
+        ok:     { label: "Apply",  callback: html => resolve(html.find('[name="rider"]').val()?.trim() || null) },
         cancel: { label: "Cancel", callback: () => resolve(null) }
       },
       default: "ok"
     }).render(true);
   });
 }
- 
 
 export async function openCritPrompt({ isFailure = false } = {}) {
-  return new Promise((resolve) => {
-    openSimpleDialog({
+  if (foundry?.applications?.api?.DialogV2) {
+    return new Promise(resolve => {
+      openSimpleDialogV2({
+        title: isFailure ? "Critical Failure" : "Critical Success",
+        content: `<p>Pick how to resolve the critical.</p>`,
+        buttons: [
+          { id: "deck",  label: "Draw Crit Card", callback: () => resolve("deck")  },
+          { id: "rider", label: "Pick Rider",     callback: () => resolve("rider") },
+          { id: "cancel",label: "Cancel",         callback: () => resolve(null)    },
+        ],
+        defaultId: "deck",
+      });
+    });
+  }
+
+  // V1 fallback
+  return new Promise(resolve => {
+    new Dialog({
       title: isFailure ? "Critical Failure" : "Critical Success",
       content: `<p>Pick how to resolve the critical.</p>`,
       buttons: {
         deck:   { label: "Draw Crit Card", callback: () => resolve("deck") },
         rider:  { label: "Pick Rider",     callback: () => resolve("rider") },
-        cancel: { label: "Cancel",         callback: () => resolve(null) }
+        cancel: { label: "Cancel",         callback: () => resolve(null)    },
       },
-      default: "deck"
+      default: "deck",
     }).render(true);
   });
 }
 
-function openSimpleDialog({ title, content, buttons, defaultId = "ok" }) {
+function openSimpleDialogV2({ title, content, buttons = [], defaultId = "ok" }) {
   const D2 = foundry?.applications?.api?.DialogV2;
-  if (D2) {
-    const dlg = new D2({ window: { title }, content, buttons, default: defaultId });
-    dlg.render(true);
-    return dlg;
+  if (!D2) return null;
+
+  // Normalize to DialogV2's expected array of {id,label,callback}
+  const btns = buttons.map(b => ({
+    id: b.id,
+    label: b.label,
+    callback: b.callback,      // DialogV2 uses "callback"
+  })).filter(b => b.id && b.label && typeof b.callback === "function");
+
+  if (btns.length === 0) {
+    // Avoid "You must define at least one entry in config.buttons"
+    btns.push({ id: "ok", label: "OK", callback: () => {} });
   }
-  // Fallback to V1
-  return new Dialog({
-    title, content,
-    buttons: Object.fromEntries(Object.entries(buttons).map(([id, b]) => [id, { label: b.label, callback: b.action }])),
-    default: defaultId
-  }).render(true);
+
+  const dlg = new D2({
+    window: { title },
+    content,
+    buttons: btns,
+    defaultId,
+  });
+  dlg.render(true);
+  return dlg;
 }
+
 
 
