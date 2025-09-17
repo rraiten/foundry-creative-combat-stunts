@@ -1,10 +1,28 @@
 import { openCritPrompt, chooseRiderDialog } from "../ui.js";
 
+const SKILL_TO_DEF = {
+  acr: "reflex",
+  ath: "fortitude",
+  cra: "fortitude",
+  med: "fortitude",
+  ste: "perception",
+  sur: "perception",
+  thi: "reflex",
+};
+
 export class PF2eAdapter {
   async buildContext({actor, target, options}){
     const rollKind = (options?.rollKind ?? "skill").toLowerCase();
     const rollKey = options?.rollKey ?? "acr";
-    const dc = this._computeDC({ actor, target, rollKind, rollKey, override: options?.dcOverride });
+    
+    let dc;
+    if (target) {
+      const def = SKILL_TO_DEF[rollKey] ?? "will";
+      dc = _getDefenseDC(target, def) ?? 20;
+    } else {
+      dc = _getLevelBasedDC(actor);
+    }
+    
     return {
       actor, target, rollKind, rollKey, 
       stat: this.pickStatistic(actor, rollKind, rollKey),
@@ -16,45 +34,22 @@ export class PF2eAdapter {
     };
   }
 
-  _computeDC({ actor, target, rollKind, rollKey, override }) {
-    if (override != null && override !== "") return Number(override);
-    if (rollKind !== "skill") {
-      // Non-skill -> default to Reflex DC if target exists, else level DC
-      return target ? this._bestSaveDC(target, "reflex") : this._levelDC(actor);
+  _getLevelBasedDC(actor) {
+    const lvl = Number(actor?.system?.details?.level?.value ?? actor?.system?.details?.level ?? 0) || 0;
+    const tbl = game.pf2e?.DCByLevel
+            ?? game.pf2e?.difficulty?.dcByLevel
+            ?? CONFIG?.PF2E?.dcByLevel
+            ?? CONFIG?.PF2E?.difficulty?.dcByLevel;
+    return tbl?.[lvl] ?? (14 + lvl);
+  }
+
+  _getDefenseDC(target, defense) {
+    const sys = target?.system ?? {};
+    const saves = sys.saves ?? target?.saves ?? {};
+    if (defense === "perception") {
+      return sys.attributes?.perception?.dc?.value ?? target?.attributes?.perception?.dc?.value ?? null;
     }
-    // Map skill -> save/perception
-    const fortSkills = new Set(["ath", "med", "cra"]);
-    const refSkills  = new Set(["acr", "thi"]);
-    const perSkills  = new Set(["sur", "ste"]);
-
-    if (target) {
-      if (fortSkills.has(rollKey)) return this._bestSaveDC(target, "fortitude");
-      if (refSkills.has(rollKey))  return this._bestSaveDC(target, "reflex");
-      if (perSkills.has(rollKey))  return this._perceptionDC(target);
-      return this._bestSaveDC(target, "will");
-    } else {
-      return this._levelDC(actor);
-    }
-  }
-
-  _bestSaveDC(target, which) {
-    const path = target?.system?.saves?.[which]?.dc?.value ?? target?.saves?.[which]?.dc?.value;
-    const val = Number(path ?? NaN);
-    return Number.isFinite(val) ? val : 20;
-  }
-
-  _perceptionDC(target) {
-    // Try PF2e DC if present; else 10 + perception modifier
-    const dcPath = target?.system?.perception?.dc?.value;
-    if (Number.isFinite(Number(dcPath))) return Number(dcPath);
-    const mod = Number(target?.system?.perception?.mod ?? target?.perception?.mod ?? 0);
-    return 10 + mod;
-  }
-
-  _levelDC(actor) {
-    // Moderate DC by level (PF2e baseline): 14 + level
-    const lvl = Number(actor?.system?.details?.level?.value ?? 0);
-    return 14 + (Number.isFinite(lvl) ? lvl : 0);
+    return saves?.[defense]?.dc?.value ?? null;
   }
 
   pickStatistic(actor, rollKind = "skill", rollKey = "acr"){
