@@ -357,7 +357,9 @@ export class PF2eAdapter {
       Number(strike?.totalModifier ?? strike?.attack?.totalModifier ?? strike?.mod) || 0;
 
     ctx._attackMod = Number(currentAttack) || 0;   // for chat-card display when rollKind=attack
-    ctx.rollLabel  = strike?.label ?? strike?.item?.name ?? ctx.rollLabel ?? "Strike";
+    if ((String(ctx.rollKind || '').toLowerCase() === 'attack')) {
+      ctx.rollLabel = strike?.label ?? strike?.item?.name ?? ctx.rollLabel ?? 'Strike';
+    }
 
     // 4) build stunt modifiers
     const Mod  = game.pf2e?.Modifier ?? game.pf2e?.modifiers?.Modifier;
@@ -397,14 +399,20 @@ export class PF2eAdapter {
 
     // E) defense map shim: make margin vs AC equal margin vs mapped DC
     const targetAC = Number(target?.system?.attributes?.ac?.value ?? target?.attributes?.ac?.value ?? 0) || 0;
-    const mappedDC = Number.isFinite(ctx.dc) ? Number(ctx.dc) : null;               // your mapped Fort/Ref/Will/Perception DC
-    const dcAdj = (mappedDC != null) ? (targetAC - mappedDC) : 0;                   // e.g. 21 − 23 = −2
-    if (Mod && mappedDC != null && dcAdj) {
-      mods.push(new Mod({ label: `Stunt (defense map ${mappedDC}→AC ${targetAC})`, modifier: dcAdj, type: "untyped" }));
+    const isAttackStunt = String(ctx.rollKind || '').toLowerCase() === 'attack';
+    if (isAttackStunt) {
+      // Attack stunts roll vs AC directly; no mapping mod
+      ctx._dcStrike = targetAC; // use AC for degree-of-success
+    } else {
+        const mappedDC = Number.isFinite(ctx.dc) ? Number(ctx.dc) : null;               // your mapped Fort/Ref/Will/Perception DC
+        const dcAdj = (mappedDC != null) ? (targetAC - mappedDC) : 0;                   // e.g. 21 − 23 = −2
+        if (Mod && mappedDC != null && dcAdj) {
+          mods.push(new Mod({ label: `Stunt (defense map ${mappedDC}→AC ${targetAC})`, modifier: dcAdj, type: "untyped" }));
+        }
+        // use AC for DoS if we applied the shim
+        ctx._dcStrike = targetAC;
+        ctx._dcAdj    = dcAdj;
     }
-    // use AC for DoS if we applied the shim
-    ctx._dcStrike = targetAC;
-    ctx._dcAdj    = dcAdj;
 
     // 5) roll the strike (native PF2e attack card → crit decks can trigger)
     const rollOpts = { createMessage: true, skipDialog: true };

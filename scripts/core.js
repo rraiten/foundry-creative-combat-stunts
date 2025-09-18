@@ -91,7 +91,15 @@ export class CCF {
     if (poolSpent) extra.push("🎬 Cinematic Pool spent (+1 degree/upgrade)");
 
     // Display math for chat card: skill-based (skill + cool − risk), independent of strike formula
-    const d20 = Number(result?.roll?.dice?.find(d => d.faces === 20)?.total ?? 0);
+    const _d20Die = result?.roll?.dice?.find?.(d => d?.faces === 20) ?? null;
+    const d20 = Number(
+      _d20Die?.results?.[0]?.result ??
+      _d20Die?.results?.[0]?.value  ??
+      _d20Die?.total ??
+      result?.roll?.terms?.find?.(t => t?.faces === 20)?.results?.[0]?.result ??
+      result?.roll?.d20 ??
+      0
+    );
     const skillMod = Number(ctx?._skillMod ?? 0);
     const attackMod = Number(ctx?._attackMod ?? 0);
     const cool = Number(ctx?.coolBonus ?? 0);
