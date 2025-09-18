@@ -90,9 +90,12 @@ export class CCF {
     if (advUsed && ctx.rollTwice === "keep-higher") extra.push("🎲 Advantage consumed");
     if (poolSpent) extra.push("🎬 Cinematic Pool spent (+1 degree/upgrade)");
 
-    const content = await foundry.applications.handlebars.renderTemplate("modules/creative-combat-stunts/templates/chat-card.hbs",{
+    const content = await foundry.applications.handlebars.renderTemplate("modules/creative-combat-stunts/      actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
       actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
       total: result.total, formula: result.formula, dc: ctx.dc,
+      dcStrike: ctx?._dcStrike ?? null,
+      dcDelta: (ctx?._dcStrike != null && ctx?.dc != null) ? (ctx._dcStrike - ctx.dc) : null,
+      modDelta: (ctx?._dcStrike != null && ctx?.dc != null) ? (ctx._dcStrike - ctx.dc) : null,
       rollTooltip: (await result?.roll?.getTooltip?.()) ?? null,
       degree: degreeTxt,
       coolBonus: ctx.coolBonus ?? 0,

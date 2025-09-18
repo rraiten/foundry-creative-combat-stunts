@@ -354,7 +354,7 @@ export class PF2eAdapter {
     // D) defense map shim: make margin vs AC equal margin vs mapped DC
     const targetAC = Number(target?.system?.attributes?.ac?.value ?? target?.attributes?.ac?.value ?? 0) || 0;
     const mappedDC = Number.isFinite(ctx.dc) ? Number(ctx.dc) : null;               // your mapped Fort/Ref/Will/Perception DC
-    const dcAdj = (mappedDC != null) ? (mappedDC - targetAC) : 0;                   // e.g. 21 − 23 = −2
+    const dcAdj = (mappedDC != null) ? (targetAC - mappedDC) : 0;                   // e.g. 21 − 23 = −2
     if (Mod && mappedDC != null && dcAdj) {
       mods.push(new Mod({ label: `Stunt (defense map ${mappedDC}→AC ${targetAC})`, modifier: dcAdj, type: "untyped" }));
     }
