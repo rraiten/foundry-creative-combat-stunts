@@ -270,16 +270,16 @@ export class PF2eAdapter {
   }
 
   async rollAsStrike(ctx) {
-    const actor = ctx.actor;
-    const stat  = ctx.stat; // chosen skill Statistic/Check
+    const actor  = ctx.actor;
     const target = ctx.target;
-
-    if (!actor || !stat || !target) {
-      ui.notifications?.warn("PF2e: No actor/target/statistic to roll as a Strike.");
+    if (!actor || !target) {
+      ui.notifications?.warn("PF2e: No actor or target for Stunt Strike.");
       return null;
     }
 
-    // 1) Choose an existing melee/unarmed strike (prefer unarmed "fist")
+    const rollKey = String(ctx.rollKey || "").toLowerCase();
+
+    // 1) pick an existing strike (prefer unarmed/fist, then melee)
     const strikes = actor.system?.actions ?? actor.system?.strikes ?? [];
     let strike =
       strikes.find(s => s?.item?.system?.traits?.value?.includes?.("unarmed")) ||
@@ -292,32 +292,53 @@ export class PF2eAdapter {
       return null;
     }
 
-    // 2) Work out the desired attack mod = chosen skill’s mod (+ cool bonus unless swapped for advantage)
-    let skillMod = Number(stat?.check?.mod ?? stat?.mod ?? 0) || 0;
+    // 2) compute the chosen SKILL modifier (don’t rely on ctx.stat)
+    const skillObj =
+      actor.system?.skills?.[rollKey] ??
+      actor.skills?.[rollKey] ?? null;
+    const skillMod = Number(
+      skillObj?.mod ??
+      ctx.stat?.check?.mod ??
+      ctx.stat?.mod ??
+      0
+    ) || 0;
 
+    // 3) current strike attack modifier
     const currentAttack =
-      Number(strike?.totalModifier ?? strike?.attack?.totalModifier ?? strike?.mod ?? 0) || 0;
+      Number(strike?.totalModifier ?? strike?.attack?.totalModifier ?? strike?.mod) || 0;
 
-    const Mod = game.pf2e?.Modifier ?? game.pf2e?.modifiers?.Modifier;
+    // 4) build stunt modifiers
+    const Mod  = game.pf2e?.Modifier ?? game.pf2e?.modifiers?.Modifier;
     const mods = [];
 
-    if (Mod) {
-      const delta = skillMod - currentAttack;
-      if (delta) mods.push(new Mod({ label: `Stunt (skill→strike: ${ctx.rollKey})`, modifier: delta, type: "untyped" }));
-      if (ctx.tacticalRisk) {mods.push(new Mod({ label: "Stunt (risk)", modifier: -2, type: "untyped" }));
-}
-      if (ctx.coolBonus) mods.push(new Mod({ label: "Stunt (flavor)", modifier: Number(ctx.coolBonus) || 0, type: "circumstance" }));
-
-      const targetAC = Number(target?.system?.attributes?.ac?.value ?? target?.attributes?.ac?.value ?? 0) || 0;
-      const dcAdj = (ctx.dc && targetAC) ? (ctx.dc - targetAC) : 0;
-      if (dcAdj) mods.push(new Mod({ label: `Stunt (defense map ${ctx.dc}→AC ${targetAC})`, modifier: dcAdj, type: "untyped" }));
-
-      // save for DoS/chat
-      ctx._dcStrike = targetAC;
-      ctx._dcAdj    = dcAdj;
+    // A) remap strike total to the skill total
+    const deltaSkillVsStrike = skillMod - currentAttack;
+    if (Mod && deltaSkillVsStrike) {
+      mods.push(new Mod({ label: `Stunt (skill→strike: ${rollKey || "skill"})`, modifier: deltaSkillVsStrike, type: "untyped" }));
     }
 
-    // 3) Roll as a Strike (produces a native PF2e attack chat card)
+    // B) cool bonus (unless swapped for advantage earlier)
+    if (Mod && ctx.coolBonus) {
+      mods.push(new Mod({ label: "Stunt (cool)", modifier: Number(ctx.coolBonus) || 0, type: "circumstance" }));
+    }
+
+    // C) tactical risk: explicit −2 line
+    if (Mod && ctx.tacticalRisk) {
+      mods.push(new Mod({ label: "Stunt (risk)", modifier: -2, type: "untyped" }));
+    }
+
+    // D) defense map shim: make margin vs AC equal margin vs mapped DC
+    const targetAC = Number(target?.system?.attributes?.ac?.value ?? target?.attributes?.ac?.value ?? 0) || 0;
+    const mappedDC = Number(ctx.dc) || 20;               // your mapped Fort/Ref/Will/Perception DC
+    const dcAdj    = mappedDC - targetAC;                // e.g. 21 − 23 = −2
+    if (Mod && dcAdj) {
+      mods.push(new Mod({ label: `Stunt (defense map ${mappedDC}→AC ${targetAC})`, modifier: dcAdj, type: "untyped" }));
+    }
+    // use AC for DoS if we applied the shim
+    ctx._dcStrike = targetAC;
+    ctx._dcAdj    = dcAdj;
+
+    // 5) roll the strike (native PF2e attack card → crit decks can trigger)
     const rollOpts = { createMessage: true, skipDialog: true };
     if (ctx.rollTwice === "keep-higher") rollOpts.rollTwice = "keep-higher";
     if (mods.length) rollOpts.modifiers = mods;
@@ -330,6 +351,4 @@ export class PF2eAdapter {
       roll:    r?.roll    ?? r
     };
   }
-
-
 }
