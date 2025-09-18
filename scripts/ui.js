@@ -114,7 +114,7 @@ export async function openStuntDialog({ token, actor } = {}) {
   const target = Array.from(game.user?.targets ?? [])[0]?.actor ?? null;
   
   // build skill stunt choices
-  const skills = getSkillChoices(actor, sys);
+  let skills = getSkillChoices(actor, sys);
   // Map short codes (e.g., THI) to human labels from PF2e if available
   try {
     const _skills = actor?.system?.skills ?? actor?.skills ?? {};

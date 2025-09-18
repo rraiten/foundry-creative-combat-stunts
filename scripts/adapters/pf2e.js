@@ -439,7 +439,8 @@ export class PF2eAdapter {
     return {
       total:   r?.total   ?? r?.roll?.total   ?? 0,
       formula: r?.formula ?? r?.roll?.formula ?? "d20",
-      roll:    r?.roll    ?? r
+      roll:    r?.roll    ?? r,
+      _ccsD20: r?._ccsD20
     };
   }
 }

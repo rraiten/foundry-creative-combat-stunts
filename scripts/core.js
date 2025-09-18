@@ -53,6 +53,10 @@ export class CCF {
     }
 
     const ctx = await this.adapter.buildContext({actor, target, options});
+    
+    // ensure the card/DC path uses the user’s choice
+    ctx.rollKind = (options?.rollKind || ctx.rollKind || "skill").toLowerCase();
+
     ctx.chooseAdvNow = chooseAdvNow;
     ctx.tacticalRisk = !!tacticalRisk;  // available both in ctx and as argument
 
@@ -118,7 +122,8 @@ export class CCF {
     const content = await foundry.applications.handlebars.renderTemplate("modules/creative-combat-stunts/templates/chat-card.hbs",{
       displayFormula, displayTotal, d20,  challengeText, actionName,
       actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
-      total: displayTotal, formula: displayFormula, dc: (ctx._dcStrike ?? ctx.dc),
+      total: displayTotal, formula: displayFormula, 
+      dc: (String(ctx?.rollKind ?? '').toLowerCase() === 'attack' ? (ctx._dcStrike ?? ctx.dc) : ctx.dc),
       dcStrike: ctx?._dcStrike ?? null,
       dcDelta: (ctx?._dcStrike != null && ctx?.dc != null) ? (ctx._dcStrike - ctx.dc) : null,
       modDelta: (ctx?._dcStrike != null && ctx?.dc != null) ? (ctx._dcStrike - ctx.dc) : null,

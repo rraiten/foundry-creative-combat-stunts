@@ -85,8 +85,14 @@ echo "Zip name        : ${ZIP_NAME}"
 
 replace_version_and_download "$NEW_VER" "$DOWNLOAD_URL"
 
-# --- build zip using git archive (honors .gitattributes export-ignore) ----
+# --- update module.json already happened above ---
 
+# --- commit + tag (BEFORE archive) -----------------------------------------
+git add "$MODULE_JSON"
+git commit -m "Release v${NEW_VER}" || echo "(Nothing to commit)"
+git tag -a "v${NEW_VER}" -m "v${NEW_VER}" || echo "(Tag already exists?)"
+
+# --- build zip from the TAG (honors .gitattributes export-ignore) ----------
 git ls-files >/dev/null 2>&1 || { echo "ERROR: not a git repo?"; exit 1; }
 
 # ensure working tree is clean enough for a reproducible archive
@@ -97,17 +103,14 @@ fi
 OUTDIR="$(dirname "$PWD")"
 OUTZIP="$OUTDIR/$ZIP_NAME"
 
-git archive --format=zip -o "$OUTDIR/$ZIP_NAME" HEAD
+git archive --format=zip -o "$OUTZIP" "v${NEW_VER}"
 
 echo "Zip created at: $OUTZIP"
 
-# --- commit + tag + push ---------------------------------------------------
-
-git add "$MODULE_JSON"
-git commit -m "Release v${NEW_VER}" || echo "(Nothing to commit)"
-git tag -a "v${NEW_VER}" -m "v${NEW_VER}" || echo "(Tag already exists?)"
+# --- push after creating tag ------------------------------------------------
 git push || true
 git push --tags || true
+
 
 # --- optional: create GitHub release (draft or published) ------------------
 
