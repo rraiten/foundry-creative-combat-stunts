@@ -96,7 +96,7 @@ export class CCF {
       rollTooltip: (await result?.roll?.getTooltip?.()) ?? null,
       degree: degreeTxt,
       coolBonus: ctx.coolBonus ?? 0,
-      coolNote: (ctx.coolBonus ? `(+${ctx.coolBonus} circumstance from flavr)` : (ctx.rollTwice === "keep-higher" ? "(Advantage used)" : "")),
+      coolNote: (ctx.coolBonus ? `(+${ctx.coolBonus} circumstance from flavor)` : (ctx.rollTwice === "keep-higher" ? "(Advantage used)" : "")),
       rollTwice: ctx.rollTwice === "keep-higher",
       tacticalRisk: !!ctx.tacticalRisk, applied,
       spentPool: poolSpent ? true : false,

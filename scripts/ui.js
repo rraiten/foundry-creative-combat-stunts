@@ -110,7 +110,7 @@ export async function openStuntDialog({ token, actor } = {}) {
 
   const D2 = foundry?.applications?.api?.DialogV2;
 
-  if (D2 && typeof openSimpleDialogV2 === "function") {
+  if (D2) {
     let dlg; // so callbacks can see the element
     dlg = openSimpleDialogV2({
       title: "Creative Stunt",
@@ -339,22 +339,6 @@ export async function chooseRiderDialog(kind = "success") {
       });
     });
   }
-
-  // V1 fallback
-  return new Promise(resolve => {
-    new Dialog({
-      title: `Choose Rider (${kind})`,
-      content: `
-        <p>Select a rider or cancel to use the default.</p>
-        <input type="text" name="rider" placeholder="e.g., prone, frightened:1, drop-item" style="width:100%"/>
-      `,
-      buttons: {
-        ok:     { label: "Apply",  callback: html => resolve(html.find('[name="rider"]').val()?.trim() || null) },
-        cancel: { label: "Cancel", callback: () => resolve(null) }
-      },
-      default: "ok"
-    }).render(true);
-  });
 }
 
 export async function openCritPrompt({ isFailure = false } = {}) {
@@ -371,20 +355,6 @@ export async function openCritPrompt({ isFailure = false } = {}) {
       });
     });
   }
-
-  // V1 fallback
-  return new Promise(resolve => {
-    new Dialog({
-      title: isFailure ? "Critical Failure" : "Critical Success",
-      content: `<p>Pick how to resolve the critical.</p>`,
-      buttons: {
-        deck:   { label: "Draw Crit Card", callback: () => resolve("deck") },
-        rider:  { label: "Pick Rider",     callback: () => resolve("rider") },
-        cancel: { label: "Cancel",         callback: () => resolve(null)    },
-      },
-      default: "deck",
-    }).render(true);
-  });
 }
 
 function openSimpleDialogV2({ title, content, buttons = [] }) {
@@ -413,7 +383,3 @@ function openSimpleDialogV2({ title, content, buttons = [] }) {
   dlg.render(true);
   return dlg;
 }
-
-
-
-

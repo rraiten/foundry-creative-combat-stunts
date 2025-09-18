@@ -1,5 +1,6 @@
 import { openCritPrompt, chooseRiderDialog } from "../ui.js";
 
+// --- Skill → defense map (only special-cased skills listed)
 const SKILL_TO_DEF = {
   acr: "reflex",
   ath: "fortitude",
@@ -23,7 +24,7 @@ function normalizeSkillKey(k) {
   return v; // others pass through (occultism, arcana, etc.)
 }
 
-
+// --- DC helpers: PCs often store modifiers, NPCs often store DCs -----------
 function _getLevelBasedDC(actor) {
   const lvl = Number(actor?.system?.details?.level?.value ?? actor?.system?.details?.level ?? 0) || 0;
   const tbl = game.pf2e?.DCByLevel
