@@ -115,31 +115,6 @@ export async function openStuntDialog({ token, actor } = {}) {
   
   // build skill stunt choices
   let skills = getSkillChoices(actor, sys);
-  // Map short codes (e.g., THI) to human labels from PF2e if available
-  try {
-    const _skills = actor?.system?.skills ?? actor?.skills ?? {};
-    skills = (skills || []).map(s => {
-      const raw = String(s?.value ?? "");
-      const kLower = raw.toLowerCase();
-
-      // Fallback map for PF2e long names/aliases → short keys
-      const longToShort = {
-        acrobatics: "acr", arcana: "arc", athletics: "ath", crafting: "cra",
-        deception: "dec", diplomacy: "dip", intimidation: "itm", medicine: "med",
-        nature: "nat", occultism: "occ", performance: "prf", religion: "rel",
-        society: "soc", stealth: "ste", survival: "sur", thievery: "thi"
-      };
-
-      // Decide the lookup key we’ll try on actor.system.skills
-      let key = kLower;
-      if (!_skills?.[key]) key = longToShort[kLower] ?? key; // e.g., "thievery" → "thi"
-
-      const pretty = _skills?.[key]?.label ?? _skills?.[key]?.name;
-      return pretty ? { ...s, label: pretty } : s;
-});
-
-  } catch (_) {}
-          
 
    // PF2e strikes list for "Attack" source
   const strikesRaw = actor.system?.actions ?? actor.system?.strikes ?? [];

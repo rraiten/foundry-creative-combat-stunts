@@ -86,7 +86,7 @@ export class PF2eAdapter {
       actor, target, rollKind, rollKey, 
       rollLabel: (() => {
         try {
-          const skills = actor?.skills ?? actor?.system?.skills ?? {};
+          const skills = actor?.system?.skills ?? actor?.skills ?? {};
           const sk = skills?.[rollKey];
           return sk?.label ?? sk?.name ?? (rollKey?.toUpperCase?.() ?? "Skill");
         } catch { return rollKey?.toUpperCase?.() ?? "Skill"; }
