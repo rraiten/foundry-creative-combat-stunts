@@ -101,8 +101,11 @@ export class CCF {
     const displayFormula = `1d20 ${sign} ${Math.abs(displayMod)}`;
     const displayTotal = d20 + displayMod;
 
+    const challengeText = challenge ? (challenge > 0 ? `+${challenge}` : `${challenge}`) : "";
+    const actionName = ctx?.rollLabel ?? (ctx?.rollKey?.toUpperCase?.() ?? "Skill");
+
     const content = await foundry.applications.handlebars.renderTemplate("modules/creative-combat-stunts/templates/chat-card.hbs",{
-      displayFormula, displayTotal,
+      displayFormula, displayTotal, d20,  challengeText, actionName,
       actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
       total: displayTotal, formula: displayFormula, dc: ctx.dc,
       dcStrike: ctx?._dcStrike ?? null,

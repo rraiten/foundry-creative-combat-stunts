@@ -1,13 +1,16 @@
 <div class="ccs-card">
   <h3>🎭 Creative Stunt</h3>
   <p><b>{{actorName}}</b> vs <b>{{targetName}}</b></p>
-  <p><b>Roll:</b> {{displayFormula}} = {{displayTotal}} vs DC <span class="ccs-dc" data-dc="{{dc}}">??</span></p>
+  <p><b>Action:</b> {{actionName}}</p>
+  <p><b>Roll:</b> {{displayFormula}} = {{displayTotal}} (d20={{d20}}) vs DC <span class="ccs-dc" data-dc="{{dc}}">??</span></p>
+
   {{#if rollTooltip}}
     <div class="dice-tooltip">{{{rollTooltip}}}</div>
   {{/if}}
   {{#if rollTwice}} • Advantage{{/if}}
   {{#if coolNote}}<em>{{coolNote}}</em>{{/if}}</p>
   {{#if tacticalRisk}}<i>(−2 Risk)</i>{{/if}}
+  {{#if challengeText}} <i>(Challenge: {{challengeText}})</i>{{/if}}
 
   <p>Outcome: <b>{{degree}}</b>
     {{#if tacticalRisk}} • <i>Tactical Risk</i>{{/if}}

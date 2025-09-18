@@ -28,23 +28,26 @@ get_owner_repo() {
   fi
 }
 
-replace_version_and_download() { # $1=version $2=download
-  local ver="$1" dl="$2" tmp
+# Safely replace JSON fields in-place (no jq); keeps formatting simple
+# $1 = version  $2 = download (optional; if empty we won't touch download)
+replace_version_and_download() {
+  local version="$1" download="$2" tmp
   tmp="$(mktemp)"
-  awk -v ver="$ver" -v dl="$dl" '
-    BEGIN { OFS=""; }
-    {
-      if ($0 ~ /"version"[[:space:]]*:/) {
-        sub(/"version"[[:space:]]*:[[:space:]]*"[^\"]*"/, "\"version\": \"" ver "\"");
-      }
-      if ($0 ~ /"download"[[:space:]]*:/ && dl != "") {
-        sub(/"download"[[:space:]]*:[[:space:]]*"[^\"]*"/, "\"download\": \"" dl "\"");
-      }
-      print $0;
-    }
-  ' '"$MODULE_JSON"' > "$tmp"
-  mv "$tmp" '"$MODULE_JSON"'
+
+  if [[ -n "$download" ]]; then
+    sed -E \
+      -e "s/\"version\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"version\": \"${version//\//\\/}\"/" \
+      -e "s/\"download\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"download\": \"${download//\//\\/}\"/" \
+      "$MODULE_JSON" > "$tmp"
+  else
+    sed -E \
+      -e "s/\"version\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"version\": \"${version//\//\\/}\"/" \
+      "$MODULE_JSON" > "$tmp"
+  fi
+
+  mv "$tmp" "$MODULE_JSON"
 }
+
 
 # --- validations -----------------------------------------------------------
 
@@ -91,7 +94,12 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "NOTE: You have uncommitted changes. They will NOT be in the zip (git archive uses HEAD)."
 fi
 
-git archive --format=zip -o "$ZIP_NAME" HEAD
+OUTDIR="$(dirname "$PWD")"
+OUTZIP="$OUTDIR/$ZIP_NAME"
+
+git archive --format=zip -o "$OUTDIR/$ZIP_NAME" HEAD
+
+echo "Zip created at: $OUTZIP"
 
 # --- commit + tag + push ---------------------------------------------------
 
