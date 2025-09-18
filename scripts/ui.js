@@ -112,8 +112,22 @@ export async function openStuntDialog({ token, actor } = {}) {
 
   const sys = game?.system?.id ?? game.systemId ?? "";
   const target = Array.from(game.user?.targets ?? [])[0]?.actor ?? null;
-  const skills = getSkillChoices(actor, sys);          // build choices
-  const rollSources = [{ value: "skill", label: "Skill" }];
+  
+  // build skill stunt choices
+  const skills = getSkillChoices(actor, sys);          
+
+   // PF2e strikes list for "Attack" source
+  const strikesRaw = actor.system?.actions ?? actor.system?.strikes ?? [];
+  const strikes = (Array.isArray(strikesRaw) ? strikesRaw : []).map(s => ({
+    value: (s?.slug ?? s?.item?.slug ?? s?.item?.id ?? s?.label ?? s?.item?.name ?? "").toString().toLowerCase(),
+    label: (s?.label ?? s?.item?.name ?? "Strike")
+  }));
+
+  const rollSources = [
+    { value: "skill", label: "Skill" },
+    { value: "attack", label: "Attack (Strike)" },
+  ];
+
   const hideRollSource = (Array.isArray(rollSources) && rollSources.length <= 1);
   const effectiveRollKind = hideRollSource ? (rollSources[0]?.value ?? "skill") : null; // keep simple for now
 
@@ -138,6 +152,7 @@ export async function openStuntDialog({ token, actor } = {}) {
       triggers,
       flavorOptions: getFlavorOptions(),
       skills,
+      strikes,
       rollSources,
       hideRollSource,
       effectiveRollKind,
@@ -162,7 +177,10 @@ export async function openStuntDialog({ token, actor } = {}) {
             const coolStr  = (q('[name="cool"]')?.value || "none");
             const coolTier = coolStr === "full" ? 2 : coolStr === "light" ? 1 : 0;
             const rollKind = (q('[name="rollKind"]')?.value || "skill").toLowerCase();
-            const rollKey  = (q('[name="rollKey"]')?.value  || "acr").toLowerCase();
+            const rollKey  = (rollKind === "attack"
+               ? (q('[name="strikeKey"]')?.value || strikes?.[0]?.value || "")
+               : (q('[name="rollKey"]')?.value   || "acr")
+            ).toLowerCase();
             const tacticalRisk = q('[name="risk"]')?.checked ?? false;
             const plausible    = q('[name="plausible"]')?.checked ?? false;
             const challengeAdj = Number(q('[name="challengeAdj"]')?.value ?? 0);

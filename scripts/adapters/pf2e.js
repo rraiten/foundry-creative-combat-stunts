@@ -310,7 +310,23 @@ export class PF2eAdapter {
 
     // 1) pick an existing strike (prefer unarmed/fist, then melee)
     const strikes = actor.system?.actions ?? actor.system?.strikes ?? [];
-    let strike =
+    const norm = (s) => (s ?? "").toString().toLowerCase();
+
+    // prefer the requested strike when rollKind=attack
+    let strike;
+    if ((ctx.rollKind || "").toLowerCase() === "attack" && ctx.rollKey) {
+      const key = norm(ctx.rollKey);
+      strike = strikes.find(s =>
+        norm(s?.slug) === key ||
+        norm(s?.item?.slug) === key ||
+        norm(s?.item?.id) === key ||
+        norm(s?.label) === key ||
+        norm(s?.item?.name) === key
+      );
+    }
+    
+    // fallback if nothing matched
+    strike = strike ||
       strikes.find(s => s?.item?.system?.traits?.value?.includes?.("unarmed")) ||
       strikes.find(s => (s?.item?.system?.range?.value ?? null) == null) ||
       strikes[0];
@@ -333,7 +349,6 @@ export class PF2eAdapter {
       ctx.stat?.mod ??
       0
     );
-
     
     ctx._skillMod = skillMod; // for chat-card display
     
@@ -341,13 +356,16 @@ export class PF2eAdapter {
     const currentAttack =
       Number(strike?.totalModifier ?? strike?.attack?.totalModifier ?? strike?.mod) || 0;
 
+    ctx._attackMod = Number(currentAttack) || 0;   // for chat-card display when rollKind=attack
+    ctx.rollLabel  = strike?.label ?? strike?.item?.name ?? ctx.rollLabel ?? "Strike";
+
     // 4) build stunt modifiers
     const Mod  = game.pf2e?.Modifier ?? game.pf2e?.modifiers?.Modifier;
     const mods = [];
 
-    // A) remap strike total to the skill total
+    // A) remap strike total to the skill total (ONLY for skill-based stunts)
     const deltaSkillVsStrike = skillMod - currentAttack;
-    if (Mod && deltaSkillVsStrike) {
+    if (Mod && (String(ctx.rollKind).toLowerCase() !== "attack") && deltaSkillVsStrike) {
       mods.push(new Mod({ label: `Stunt (skill→strike: ${rollKey || "skill"})`, modifier: deltaSkillVsStrike, type: "untyped" }));
     }
 

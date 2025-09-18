@@ -93,10 +93,12 @@ export class CCF {
     // Display math for chat card: skill-based (skill + cool − risk), independent of strike formula
     const d20 = Number(result?.roll?.dice?.find(d => d.faces === 20)?.total ?? 0);
     const skillMod = Number(ctx?._skillMod ?? 0);
+    const attackMod = Number(ctx?._attackMod ?? 0);
     const cool = Number(ctx?.coolBonus ?? 0);
     const risk = ctx?.tacticalRisk ? -2 : 0;
     const challenge = Number(ctx?.challengeAdj ?? 0);
-    const displayMod = skillMod + cool + risk + challenge;
+    const base = (String(ctx?.rollKind).toLowerCase() === "attack") ? attackMod : skillMod;
+    const displayMod = base + cool + risk + challenge;
     const sign = displayMod >= 0 ? "+" : "-";
     const displayFormula = `1d20 ${sign} ${Math.abs(displayMod)}`;
     const displayTotal = d20 + displayMod;

@@ -36,22 +36,31 @@
   {{/if}}
 
   {{#unless hideRollSource}}
-  <div class="form-group">
-    <label>Roll Source</label>
-    <select name="rollKind">
-      {{#each rollSources}}
+    <div class="form-group">
+      <label>Roll Source</label>
+      <select name="rollKind">
+        {{#each rollSources}}
+          <option value="{{this.value}}">{{this.label}}</option>
+        {{/each}}
+      </select>
+    </div>
+  {{else}}
+    <input type="hidden" name="rollKind" value="{{effectiveRollKind}}"/>
+  {{/unless}}
+
+  <div class="form-group ccs-row-skill">
+    <label>Skill</label>
+    <select name="rollKey">
+      {{#each skills}}
         <option value="{{this.value}}">{{this.label}}</option>
       {{/each}}
     </select>
   </div>
-  {{else}}
-  <input type="hidden" name="rollKind" value="{{effectiveRollKind}}"/>
-  {{/unless}}
 
-  <div class="form-group">
-    <label>Skill</label>
-    <select name="rollKey">
-      {{#each skills}}
+  <div class="form-group ccs-row-attack" style="display:none">
+    <label>Strike</label>
+    <select name="strikeKey">
+      {{#each strikes}}
         <option value="{{this.value}}">{{this.label}}</option>
       {{/each}}
     </select>
