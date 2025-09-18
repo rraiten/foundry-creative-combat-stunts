@@ -60,9 +60,9 @@ export async function openStuntDialog({ token, actor } = {}) {
   const sys = game?.system?.id ?? game.systemId ?? "";
   const target = Array.from(game.user?.targets ?? [])[0]?.actor ?? null;
   const skills = getSkillChoices(actor, sys);          // build choices
-  
-  const hideRollSource = (rollSources && rollSources.length <= 1);
-  const effectiveRollKind = hideRollSource ? (rollSources?.[0]?.value ?? 'skill') : null; // keep simple for now
+  const rollSources = [{ value: "skill", label: "Skill" }];
+  const hideRollSource = (Array.isArray(rollSources) && rollSources.length <= 1);
+  const effectiveRollKind = hideRollSource ? (rollSources[0]?.value ?? "skill") : null; // keep simple for now
 
   const pf2eAdvOnce = sys === "pf2e"
     ? game.settings.get("creative-combat-stunts", "pf2eAdvantageOnce")
