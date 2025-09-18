@@ -33,19 +33,40 @@ function _getLevelBasedDC(actor) {
   return tbl?.[lvl] ?? (14 + lvl);
 }
 
-function _num(n, d=0) { const x = Number(n); return Number.isFinite(x) ? x : d; }
+function _num(n) { const x = Number(n); return Number.isFinite(x) ? x : null; }
 
 function _getDefenseDC(target, defense) {
-  const sys   = target?.system ?? {};
-  const saves = sys.saves ?? target?.saves ?? {};
+  const sys = target?.system ?? {};
+
   if (defense === "perception") {
-    return _num(sys.attributes?.perception?.dc?.value
-             ?? target?.attributes?.perception?.dc?.value
-             ?? null, null);
+    // Prefer explicit DC if present (NPCs etc.)
+    const dc = _num(sys.attributes?.perception?.dc?.value);
+    if (dc != null) return dc;
+
+    // PCs usually have only the modifier; compute DC = 10 + mod
+    const mod = _num(sys.attributes?.perception?.totalModifier)
+             ?? _num(sys.attributes?.perception?.mod)
+             ?? _num(sys.attributes?.perception?.value);
+    if (mod != null) return 10 + mod;
+
+    return null;
   }
-  // defense is "fortitude" | "reflex" | "will"
-  return _num(saves?.[defense]?.dc?.value ?? null, null);
+
+  // fortitude / reflex / will
+  const s = sys.saves?.[defense];
+  if (!s) return null;
+
+  // Prefer explicit DC if present (NPCs)
+  const dc = _num(s?.dc?.value);
+  if (dc != null) return dc;
+
+  // Otherwise compute DC = 10 + save modifier (PCs)
+  const mod = _num(s?.totalModifier) ?? _num(s?.mod) ?? _num(s?.value);
+  if (mod != null) return 10 + mod;
+
+  return null;
 }
+
 
 export class PF2eAdapter {
   async buildContext({actor, target, options}){
@@ -298,10 +319,12 @@ export class PF2eAdapter {
       actor.skills?.[rollKey] ?? null;
     const skillMod = Number(
       skillObj?.mod ??
+      skillObj?.totalModifier ??
+      skillObj?.value ??
       ctx.stat?.check?.mod ??
       ctx.stat?.mod ??
       0
-    ) || 0;
+    );
 
     // 3) current strike attack modifier
     const currentAttack =
@@ -329,9 +352,9 @@ export class PF2eAdapter {
 
     // D) defense map shim: make margin vs AC equal margin vs mapped DC
     const targetAC = Number(target?.system?.attributes?.ac?.value ?? target?.attributes?.ac?.value ?? 0) || 0;
-    const mappedDC = Number(ctx.dc) || 20;               // your mapped Fort/Ref/Will/Perception DC
-    const dcAdj    = mappedDC - targetAC;                // e.g. 21 − 23 = −2
-    if (Mod && dcAdj) {
+    const mappedDC = Number.isFinite(ctx.dc) ? Number(ctx.dc) : null;               // your mapped Fort/Ref/Will/Perception DC
+    const dcAdj = (mappedDC != null) ? (mappedDC - targetAC) : 0;                   // e.g. 21 − 23 = −2
+    if (Mod && mappedDC != null && dcAdj) {
       mods.push(new Mod({ label: `Stunt (defense map ${mappedDC}→AC ${targetAC})`, modifier: dcAdj, type: "untyped" }));
     }
     // use AC for DoS if we applied the shim
