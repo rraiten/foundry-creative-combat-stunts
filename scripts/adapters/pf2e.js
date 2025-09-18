@@ -129,7 +129,14 @@ export class PF2eAdapter {
     }
 
     // Fallback: PF2e DoS rules (±10, then nat 20/1 step)
-    const d20 = Number(result?.roll?.dice?.find(d => d.faces === 20)?.total ?? 0);
+    const d20 = Number(
+      result?.roll?.dice?.find?.(d => d?.faces === 20)?.results?.[0]?.result ??
+      result?.roll?.dice?.find?.(d => d?.faces === 20)?.results?.[0]?.value  ??
+      result?.roll?.dice?.find?.(d => d?.faces === 20)?.total ??
+      result?._ccsD20 ??            // adapter-set fallback (present in your build)
+      result?.roll?.d20 ?? 0
+    );
+
     let degree = (total >= dc + 10) ? 3 :
                 (total >= dc)      ? 2 :
                 (total <= dc - 10) ? 0 : 1;

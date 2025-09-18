@@ -119,10 +119,25 @@ export async function openStuntDialog({ token, actor } = {}) {
   try {
     const _skills = actor?.system?.skills ?? actor?.skills ?? {};
     skills = (skills || []).map(s => {
-      const k = String(s?.value ?? "").toLowerCase();
-      const pretty = _skills?.[k]?.label ?? _skills?.[k]?.name;
+      const raw = String(s?.value ?? "");
+      const kLower = raw.toLowerCase();
+
+      // Fallback map for PF2e long names/aliases → short keys
+      const longToShort = {
+        acrobatics: "acr", arcana: "arc", athletics: "ath", crafting: "cra",
+        deception: "dec", diplomacy: "dip", intimidation: "itm", medicine: "med",
+        nature: "nat", occultism: "occ", performance: "prf", religion: "rel",
+        society: "soc", stealth: "ste", survival: "sur", thievery: "thi"
+      };
+
+      // Decide the lookup key we’ll try on actor.system.skills
+      let key = kLower;
+      if (!_skills?.[key]) key = longToShort[kLower] ?? key; // e.g., "thievery" → "thi"
+
+      const pretty = _skills?.[key]?.label ?? _skills?.[key]?.name;
       return pretty ? { ...s, label: pretty } : s;
-    });
+});
+
   } catch (_) {}
           
 
