@@ -13,7 +13,6 @@
   - Add clearer feedback when tokens are spent.
 
 ## B. Added features
-- [ ] **allow attacks as stunts**
 - [ ] **allow spell attacks as stunts**
 
 ## C. Rules tighten

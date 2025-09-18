@@ -219,6 +219,22 @@ export async function openStuntDialog({ token, actor } = {}) {
       update();
     } catch (_) { /* non-PF2 or row missing: ignore */ }
 
+    // make sure only 1 strike or skill selection is shown not both
+    try {
+      const root   = dlg.element?.[0] ?? dlg.element;
+      const select = root?.querySelector('[name="rollKind"]');
+      const skill  = root?.querySelector('.ccs-row-skill');
+      const atk    = root?.querySelector('.ccs-row-attack');
+      const update = () => {
+        const k = (select?.value || "skill").toLowerCase();
+        if (skill) skill.style.display = (k === "skill")  ? "" : "none";
+        if (atk)   atk.style.display   = (k === "attack") ? "" : "none";
+      };
+      select?.addEventListener("change", update);
+      update();
+    } catch (_) {}
+
+
     return; 
   }
 }
