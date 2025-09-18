@@ -13,13 +13,16 @@
 - [ ] **Rider dialog UX**
   - Replace free-text input with clearer guided selection (dropdowns, presets, etc.).
 
-## B. Placement & Visibility
 - [ ] **Remove stunt button from sheet**
-  - Token HUD access is sufficient.
+  - remove access from character sheet.
 
 - [ ] **Cinematic Pool polish**
   - Improve visibility & usability beyond combat tracker button.
   - Add clearer feedback when tokens are spent.
 
+## B. Added features
+- [ ] **allow attacks as stunts**
+- [ ] **allow spell attacks as stunts**
+
 ## C. Rules tighten
-- [ ] **stunt should take an action or 2**
+- [ ] **stunt action economy**
