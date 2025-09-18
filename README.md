@@ -19,6 +19,13 @@ Instead of flat rolls, players can commit to stunts before they act, with outcom
 2. Select a token and open **Stunt Dialog** from the token HUD / macro (if you add one).  
 3. Choose a stunt, confirm, and let the adapter apply outcomes.
 
+## How it actually works
+1. Reward players for roleplaying cool stunts with flat bonuses, advantage, special statuses or a draw from a critical deck.
+2. Allows a fail-forward for important combat narrative moments - no more describing in details a great moment only to fail the roll to no effect.
+3. Balance risk-reward you can make the DC higher for a more rewarding effect, but also risk getting a condition if you fail.
+4. Introdudce an optional cinematic points pool to be used by the party on importatnt boss fights.
+5. Allow the GM to spice up boss encounters by making the boss tougher yet allow the party to exploit weaknesses and turn the battle in their favor.
+
 ## Compatibility
 - Foundry **v12+**, verified **v13**  
 - Systems: **pf2e**, **dnd5e**
