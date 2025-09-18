@@ -5,9 +5,6 @@
   - Collapse long explanatory text into tooltips.
   - Use short checkboxes only (“Tactical Risk”, “Use Advantage”).
 
-- [ ] **Roll source & DC**
-  - Rethink / remove DC override.
-
 - [ ] **Rider dialog UX**
   - Replace free-text input with clearer guided selection (dropdowns, presets, etc.).
 

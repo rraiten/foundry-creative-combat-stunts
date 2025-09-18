@@ -1,0 +1,27 @@
+# Tooling / dev (exclude from release zip)
+Makefile                export-ignore
+release.sh              export-ignore
+package.json            export-ignore
+package-lock.json       export-ignore
+pnpm-lock.yaml          export-ignore
+vitest.config.*         export-ignore
+rollup.config.*         export-ignore
+vite.config.*           export-ignore
+tsconfig.*              export-ignore
+
+# Tests & CI
+tests/                  export-ignore
+.github/                export-ignore
+
+# Node & misc
+node_modules/           export-ignore
+.npmrc                  export-ignore
+.eslintrc.*             export-ignore
+.prettier*              export-ignore
+.editorconfig           export-ignore
+
+# VCS & OS cruft
+.gitignore              export-ignore
+.gitattributes          export-ignore
+.DS_Store               export-ignore
+Thumbs.db               export-ignore

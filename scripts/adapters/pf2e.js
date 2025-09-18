@@ -354,7 +354,23 @@ export class PF2eAdapter {
       mods.push(new Mod({ label: "Stunt (risk)", modifier: -2, type: "untyped" }));
     }
 
-    // D) defense map shim: make margin vs AC equal margin vs mapped DC
+    // D) challenge adjustments (weakness/resistance)
+    if (Mod && (Number(ctx.challengeAdj ?? 0) !== 0)) {
+      const val = Number(ctx.challengeAdj) || 0;
+      const tag =
+        val > 0 ? (val === 4 ? "major weakness" : "weakness")
+                : (val === -4 ? "major resistance" : "resistance");
+
+      mods.push(
+        new Mod({
+          label: `Stunt (challenge: ${tag})`,
+          modifier: val,
+          type: "untyped",         // <-- stack with Cool (which is a circumstance)
+        })
+      );
+    }
+
+    // E) defense map shim: make margin vs AC equal margin vs mapped DC
     const targetAC = Number(target?.system?.attributes?.ac?.value ?? target?.attributes?.ac?.value ?? 0) || 0;
     const mappedDC = Number.isFinite(ctx.dc) ? Number(ctx.dc) : null;               // your mapped Fort/Ref/Will/Perception DC
     const dcAdj = (mappedDC != null) ? (targetAC - mappedDC) : 0;                   // e.g. 21 − 23 = −2

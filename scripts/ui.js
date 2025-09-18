@@ -165,13 +165,14 @@ export async function openStuntDialog({ token, actor } = {}) {
             const rollKey  = (q('[name="rollKey"]')?.value  || "acr").toLowerCase();
             const tacticalRisk = q('[name="risk"]')?.checked ?? false;
             const plausible    = q('[name="plausible"]')?.checked ?? false;
+            const challengeAdj = Number(q('[name="challengeAdj"]')?.value ?? 0);
             let chooseAdvNow   = q('[name="advNow"]')?.checked ?? false;
             if (coolTier < 2) chooseAdvNow = false;
             const spendPoolNow = q('[name="spendPool"]')?.checked ?? false;
             const triggerId    = q('[name="trigger"]')?.value || null;
             game.ccf.rollStunt({
               actor, target,
-              options: { rollKind, rollKey, coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId }
+              options: { rollKind, rollKey, coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId, challengeAdj }
             });
             return "roll"; 
           }

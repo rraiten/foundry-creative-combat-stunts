@@ -95,7 +95,8 @@ export class CCF {
     const skillMod = Number(ctx?._skillMod ?? 0);
     const cool = Number(ctx?.coolBonus ?? 0);
     const risk = ctx?.tacticalRisk ? -2 : 0;
-    const displayMod = skillMod + cool + risk;
+    const challenge = Number(ctx?.challengeAdj ?? 0);
+    const displayMod = skillMod + cool + risk + challenge;
     const sign = displayMod >= 0 ? "+" : "-";
     const displayFormula = `1d20 ${sign} ${Math.abs(displayMod)}`;
     const displayTotal = d20 + displayMod;
