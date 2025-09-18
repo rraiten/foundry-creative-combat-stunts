@@ -18,28 +18,7 @@ const getFlavorOptions = () =>
 
 /* ---------- UI registration ---------- */
 export function registerUI() {
-  // Actor sheet header button
-  Hooks.on("renderActorSheet", (app, html) => {
-    const actor = app.actor;
-    if (!actor?.isOwner) return;
-
-    const $root = app.element ?? html.closest(".app");
-    $root.find(".ccs-stunt-button").remove();
-
-    const $btn = $(
-      `<a class="ccs-stunt-button" title="Stunt">
-         <i class="fas fa-theater-masks"></i> Stunt
-       </a>`
-    ).on("click", () => openStuntDialog({ actor }));
-
-    const $actions = $root.find(".window-header .header-actions").first();
-    const $title = $root.find(".window-header .title, .window-title").first();
-    if ($actions.length) $actions.prepend($btn);
-    else if ($title.length) $title.after($btn);
-    else html.prepend($btn);
-  });
-
-  // Combat tracker footer button
+// Combat tracker footer button
   Hooks.on("renderCombatTracker", (_app, element) => {
     const $el = element instanceof jQuery ? element : $(element);
     $el.find(".ccs-pool-button").remove();
@@ -81,7 +60,9 @@ export async function openStuntDialog({ token, actor } = {}) {
   const sys = game?.system?.id ?? game.systemId ?? "";
   const target = Array.from(game.user?.targets ?? [])[0]?.actor ?? null;
   const skills = getSkillChoices(actor, sys);          // build choices
-  const rollSources = [{ value: "skill", label: "Skill" }]; // keep simple for now
+  \1
+  const hideRollSource = (rollSources && rollSources.length <= 1);
+  const effectiveRollKind = hideRollSource ? (rollSources?.[0]?.value ?? 'skill') : null; // keep simple for now
 
   const pf2eAdvOnce = sys === "pf2e"
     ? game.settings.get("creative-combat-stunts", "pf2eAdvantageOnce")
@@ -105,6 +86,8 @@ export async function openStuntDialog({ token, actor } = {}) {
       flavorOptions: getFlavorOptions(),
       skills,
       rollSources,
+      hideRollSource,
+      effectiveRollKind,
     }
   );
 
@@ -376,10 +359,12 @@ function openSimpleDialogV2({ title, content, buttons = [] }) {
   }
 
   const dlg = new D2({
-    window: { title },
+    window: { title, resizable: false },
+    position: { width: 420 },
     content,
     buttons: btns,
   });
   dlg.render(true);
+  try { setTimeout(() => { const el = dlg?.element?.querySelector?.('[data-action="roll"],[data-button="roll"],button.primary,button.default'); el?.focus?.(); }, 10); } catch(_) {}
   return dlg;
 }

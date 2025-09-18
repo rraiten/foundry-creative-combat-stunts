@@ -35,6 +35,7 @@
   </div>
   {{/if}}
 
+  {{#unless hideRollSource}}
   <div class="form-group">
     <label>Roll Source</label>
     <select name="rollKind">
@@ -43,6 +44,9 @@
       {{/each}}
     </select>
   </div>
+  {{else}}
+  <input type="hidden" name="rollKind" value="{{effectiveRollKind}}"/>
+  {{/unless}}
 
   <div class="form-group">
     <label>Skill</label>
