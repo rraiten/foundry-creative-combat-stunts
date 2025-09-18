@@ -87,8 +87,8 @@ export class PF2eAdapter {
       rollLabel: (() => {
         try {
           const skills = actor?.system?.skills ?? actor?.skills ?? {};
-          const key = String(rollKey ?? "").toLowerCase()
-          const sk = skills?.[key];
+          const key = normalizeSkillKey(rollKey);
+          const sk  = skills?.[key] ?? skills?.[String(rollKey ?? "").toLowerCase()];
           return sk?.label ?? sk?.name ?? (rollKey?.toUpperCase?.() ?? "Skill");
         } catch { return rollKey?.toUpperCase?.() ?? "Skill"; }
       })(),
