@@ -109,62 +109,81 @@ git tag -a "v${NEW_VER}" -m "v${NEW_VER}" || echo "(Tag already exists?)"
 git push || true
 git push --tags || true
 
-# --- optional: create GitHub release --------------------------------------
+# --- optional: create GitHub release (draft or published) ------------------
 
-if [[ "$PUBLISH" = "1" ]]; then
-  : "${GITHUB_TOKEN:?GITHUB_TOKEN required for release}"
-  [[ -n "$OWNER_REPO" ]] || { echo "ERROR: OWNER/REPO unknown; cannot publish release."; exit 1; }
+# Behavior:
+#   DRAFT=1   -> create/update a DRAFT release (title is X.Y.Z)
+#   PUBLISH=1 -> create/update a PUBLISHED release (title is X.Y.Z)
+# If both set, DRAFT wins (remains a draft).
 
-  echo "Creating GitHub release v${NEW_VER} for ${OWNER_REPO}…"
+if [[ -n "${GITHUB_TOKEN:-}" && -n "$OWNER_REPO" && ( "${DRAFT:-0}" = "1" || "${PUBLISH:-0}" = "1" ) ]]; then
   API="https://api.github.com"
   UPLOADS="https://uploads.github.com"
+  TITLE="${NEW_VER}"              # title without leading 'v'
+  DRAFT_FLAG="false"
+  [[ "${DRAFT:-0}" = "1" ]] && DRAFT_FLAG="true"
 
-  # If the release already exists, GitHub returns 422. We’ll try GET then POST asset.
-  # 1) Create (or retrieve) release
-  create_resp="$(curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-    -H "Accept: application/vnd.github+json" \
-    -X POST "${API}/repos/${OWNER_REPO}/releases" \
-    -d "$(printf '{"tag_name":"v%s","name":"v%s","draft":false,"prerelease":false}' "$NEW_VER" "$NEW_VER")" )"
+  echo "Creating/updating $( [[ $DRAFT_FLAG = true ]] && echo DRAFT || echo PUBLISHED ) release v${NEW_VER} for ${OWNER_REPO}…"
 
-  rel_id="$(echo "$create_resp" | grep -Po '"id"\s*:\s*\K[0-9]+' | head -n1 || true)"
-  if [[ -z "$rel_id" ]]; then
-    # maybe it already exists — fetch by tag
-    echo "Release may exist already; trying fetch…"
-    fetch_resp="$(curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-      -H "Accept: application/vnd.github+json" \
-      "${API}/repos/${OWNER_REPO}/releases/tags/v${NEW_VER}")"
-    rel_id="$(echo "$fetch_resp" | grep -Po '"id"\s*:\s*\K[0-9]+' | head -n1 || true)"
-  fi
-
-  [[ -n "$rel_id" ]] || { echo "ERROR: Could not obtain release id."; exit 1; }
-
-  # 2) Upload asset (may fail if an asset with same name exists; then replace)
-  echo "Uploading asset ${ZIP_NAME}…"
-  up_status="$(curl -sS -w "%{http_code}" -o /dev/null \
+  # 1) Try to create release
+  CREATE_PAYLOAD=$(printf '{"tag_name":"v%s","name":"%s","draft":%s,"prerelease":false}' "$NEW_VER" "$TITLE" "$DRAFT_FLAG")
+  CREATE_RESP="$(curl -sS -X POST "${API}/repos/${OWNER_REPO}/releases" \
     -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-    -H "Content-Type: application/zip" \
-    --data-binary @"${ZIP_NAME}" \
-    "${UPLOADS}/repos/${OWNER_REPO}/releases/${rel_id}/assets?name=${ZIP_NAME}")"
+    -H "Accept: application/vnd.github+json" \
+    -d "$CREATE_PAYLOAD")"
 
-  if [[ "$up_status" != "201" ]]; then
-    echo "Upload returned ${up_status}. Trying to delete existing asset with same name and re-upload…"
-    assets="$(curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-      -H "Accept: application/vnd.github+json" \
-      "${API}/repos/${OWNER_REPO}/releases/${rel_id}/assets")"
-    asset_id="$(echo "$assets" | grep -Po "\"name\":\"${ZIP_NAME}\"[^\}]*\"id\":\s*\K[0-9]+" | head -n1 || true)"
-    if [[ -n "$asset_id" ]]; then
-      curl -sS -X DELETE -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-        "${API}/repos/${OWNER_REPO}/releases/assets/${asset_id}" >/dev/null || true
-      curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-        -H "Content-Type: application/zip" \
-        --data-binary @"${ZIP_NAME}" \
-        "${UPLOADS}/repos/${OWNER_REPO}/releases/${rel_id}/assets?name=${ZIP_NAME}" >/dev/null
+  REL_ID="$(echo "$CREATE_RESP" | grep -Po '"id"\s*:\s*\K[0-9]+' | head -n1 || true)"
+
+  # 2) If release exists already, fetch by tag and PATCH it
+  if [[ -z "$REL_ID" ]]; then
+    FETCH_RESP="$(curl -sS -X GET "${API}/repos/${OWNER_REPO}/releases/tags/v${NEW_VER}" \
+      -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+      -H "Accept: application/vnd.github+json")"
+    REL_ID="$(echo "$FETCH_RESP" | grep -Po '"id"\s*:\s*\K[0-9]+' | head -n1 || true)"
+
+    if [[ -n "$REL_ID" ]]; then
+      PATCH_PAYLOAD=$(printf '{"name":"%s","draft":%s}' "$TITLE" "$DRAFT_FLAG")
+      curl -sS -X PATCH "${API}/repos/${OWNER_REPO}/releases/${REL_ID}" \
+        -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+        -H "Accept: application/vnd.github+json" \
+        -d "$PATCH_PAYLOAD" >/dev/null
+    else
+      echo "ERROR: Could not create or fetch release for v${NEW_VER}."
+      exit 1
     fi
   fi
 
-  echo "Release published: v${NEW_VER}"
+  # 3) Upload (or re-upload) the asset
+  #    If an asset with same name exists, delete then upload.
+  ASSETS_JSON="$(curl -sS -X GET "${API}/repos/${OWNER_REPO}/releases/${REL_ID}/assets" \
+    -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+    -H "Accept: application/vnd.github+json")"
+  EXISTING_ASSET_ID="$(echo "$ASSETS_JSON" | grep -Po "\"name\":\"${ZIP_NAME}\"[^\}]*\"id\":\s*\K[0-9]+" | head -n1 || true)"
+
+  if [[ -n "$EXISTING_ASSET_ID" ]]; then
+    curl -sS -X DELETE "${API}/repos/${OWNER_REPO}/releases/assets/${EXISTING_ASSET_ID}" \
+      -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+      -H "Accept: application/vnd.github+json" >/dev/null || true
+  fi
+
+  echo "Uploading asset ${ZIP_NAME}…"
+  curl -sS -X POST "${UPLOADS}/repos/${OWNER_REPO}/releases/${REL_ID}/assets?name=${ZIP_NAME}" \
+    -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+    -H "Content-Type: application/zip" \
+    --data-binary @"${OUTZIP}" >/dev/null
+
+  if [[ "$DRAFT_FLAG" = "true" ]]; then
+    echo "Draft release created/updated: tag v${NEW_VER}, title ${TITLE}."
+    echo "NOTE: The download URL in module.json will not be publicly accessible until you publish the release."
+  else
+    echo "Published release created/updated: v${NEW_VER}."
+  fi
 else
-  echo "Skipping GitHub release (PUBLISH=1 to enable)."
+  if [[ "${DRAFT:-0}" = "1" || "${PUBLISH:-0}" = "1" ]]; then
+    echo "Skipping GitHub release: ensure OWNER/REPO is GitHub and GITHUB_TOKEN is set."
+  else
+    echo "Skipping GitHub release (set DRAFT=1 or PUBLISH=1 to enable)."
+  fi
 fi
 
 echo "OK: v${NEW_VER} built as ${ZIP_NAME}"
