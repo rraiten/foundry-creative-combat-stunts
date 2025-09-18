@@ -87,11 +87,38 @@ export class PF2eAdapter {
       rollLabel: (() => {
         try {
           const skills = actor?.system?.skills ?? actor?.skills ?? {};
-          const key = normalizeSkillKey(rollKey);
-          const sk  = skills?.[key] ?? skills?.[String(rollKey ?? "").toLowerCase()];
-          return sk?.label ?? sk?.name ?? (rollKey?.toUpperCase?.() ?? "Skill");
-        } catch { return rollKey?.toUpperCase?.() ?? "Skill"; }
+
+          // Canonical labels for short PF2e keys
+          const SHORT_TO_LABEL = {
+            acr: "Acrobatics",
+            arc: "Arcana",
+            ath: "Athletics",
+            cra: "Crafting",
+            dec: "Deception",
+            dip: "Diplomacy",
+            itm: "Intimidation",
+            med: "Medicine",
+            nat: "Nature",
+            occ: "Occultism",
+            prf: "Performance",
+            rel: "Religion",
+            soc: "Society",
+            ste: "Stealth",
+            sur: "Survival",
+            thi: "Thievery",
+          };
+
+          const key = normalizeSkillKey(rollKey); // e.g. "thievery"/"THI" -> "thi"
+          const k2  = String(rollKey ?? "").toLowerCase();
+
+          const sk  = skills?.[key] ?? skills?.[k2];
+          // Prefer PF2e’s live label; otherwise canonical; never return the 3-letter code
+          return sk?.label ?? sk?.name ?? SHORT_TO_LABEL[key] ?? (SHORT_TO_LABEL[k2] ?? "Skill");
+        } catch {
+          return "Skill";
+        }
       })(),
+
       stat: this.pickStatistic(actor, rollKind, rollKey),
       dc,
       rollTwice: null,
