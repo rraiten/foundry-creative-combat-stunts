@@ -359,12 +359,31 @@ function openSimpleDialogV2({ title, content, buttons = [] }) {
   }
 
   const dlg = new D2({
-    window: { title, resizable: false },
-    position: { width: 420 },
-    content,
-    buttons: btns,
-  });
-  dlg.render(true);
-  try { setTimeout(() => { const el = dlg?.element?.querySelector?.('[data-action="roll"],[data-button="roll"],button.primary,button.default'); el?.focus?.(); }, 10); } catch(_) {}
-  return dlg;
-}
+      window: { title, resizable: false },
+      position: { width: 420 },
+      content,
+      buttons: btns,
+    });
+    dlg.render(true);
+    try { setTimeout(() => { const el = dlg?.element?.querySelector?.('[data-action="roll"],[data-button="roll"],button.primary,button.default'); el?.focus?.(); }, 10); } catch(_) {}
+    return dlg;
+  }
+
+/* ---------- per-view masking for DCs / mapping ---------- */
+Hooks.on("renderChatMessage", (_message, html) => {
+  try {
+    const root = html?.[0] ?? html;
+    if (!root?.querySelector) return;
+    if (!root.querySelector('.ccs-card')) return;
+    const isGM = !!game.user?.isGM;
+
+    const dcs = root.querySelectorAll('.ccs-dc');
+    dcs.forEach(el => {
+      const dc = el.getAttribute('data-dc') ?? '';
+      el.textContent = isGM ? dc : '??';
+    });
+
+    const gmOnly = root.querySelectorAll('.ccs-gm-only');
+    gmOnly.forEach(el => { el.style.display = isGM ? '' : 'none'; });
+  } catch (e) { /* no-op */ }
+});

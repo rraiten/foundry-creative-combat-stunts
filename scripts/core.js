@@ -90,16 +90,26 @@ export class CCF {
     if (advUsed && ctx.rollTwice === "keep-higher") extra.push("🎲 Advantage consumed");
     if (poolSpent) extra.push("🎬 Cinematic Pool spent (+1 degree/upgrade)");
 
+    // Display math for chat card: skill-based (skill + cool − risk), independent of strike formula
+    const d20 = Number(result?.roll?.dice?.find(d => d.faces === 20)?.total ?? 0);
+    const skillMod = Number(ctx?._skillMod ?? 0);
+    const cool = Number(ctx?.coolBonus ?? 0);
+    const risk = ctx?.tacticalRisk ? -2 : 0;
+    const displayMod = skillMod + cool + risk;
+    const sign = displayMod >= 0 ? "+" : "-";
+    const displayFormula = `1d20 ${sign} ${Math.abs(displayMod)}`;
+    const displayTotal = d20 + displayMod;
+
     const content = await foundry.applications.handlebars.renderTemplate("modules/creative-combat-stunts/templates/chat-card.hbs",{
       actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
-      total: result.total, formula: result.formula, dc: ctx.dc,
+      total: displayTotal, formula: displayFormula, dc: ctx.dc,
       dcStrike: ctx?._dcStrike ?? null,
       dcDelta: (ctx?._dcStrike != null && ctx?.dc != null) ? (ctx._dcStrike - ctx.dc) : null,
       modDelta: (ctx?._dcStrike != null && ctx?.dc != null) ? (ctx._dcStrike - ctx.dc) : null,
       rollTooltip: (await result?.roll?.getTooltip?.()) ?? null,
       degree: degreeTxt,
       coolBonus: ctx.coolBonus ?? 0,
-      coolNote: (ctx.coolBonus ? `(+${ctx.coolBonus} flavor)` : (ctx.rollTwice === "keep-higher" ? "(Advantage used)" : "")),
+      coolNote: (ctx.coolBonus ? `(+${ctx.coolBonus} Flavor)` : (ctx.rollTwice === "keep-higher" ? "(Advantage used)" : "")),
       rollTwice: ctx.rollTwice === "keep-higher",
       tacticalRisk: !!ctx.tacticalRisk, applied,
       spentPool: poolSpent ? true : false,
