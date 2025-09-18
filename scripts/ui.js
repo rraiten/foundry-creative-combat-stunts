@@ -31,6 +31,43 @@ export function registerUI() {
 +  (mount.length ? mount : $el).append($btn); 
   });
 
+  // === CCS: scrub internal stunt shims from PF2e pre-roll dialog for PLAYERS (GMs keep full details) ===
+  function ccsScrubStuntModifiers(root) {
+    try {
+      if (!root?.querySelector) return;
+
+      // Look through common modifier lists PF2e uses in its pre-roll dialogs
+      const candidates = root.querySelectorAll(
+        '.dice-modifiers li, .modifiers-list li, li[role="listitem"], li'
+      );
+
+      candidates.forEach((li) => {
+        const t = (li.textContent || "").toLowerCase();
+        // Remove only the internal mapping lines (players shouldn't learn target stats)
+        if (t.includes("stunt (skill") || t.includes("stunt (defense map")) {
+          li.remove();
+        }
+      });
+    } catch (_e) { /* no-op */ }
+  }
+
+  // Scrub on generic Foundry Dialog render
+  Hooks.on("renderDialog", (_app, html) => {
+    if (game.user?.isGM) return;          // GM keeps full visibility
+    const root = html?.[0] ?? html;
+    ccsScrubStuntModifiers(root);
+  });
+
+  // Scrub on PF2e-specific Application renders (kept narrow to check/attack style dialogs)
+  Hooks.on("renderApplication", (app, html) => {
+    if (game.user?.isGM) return;
+    const name = app?.constructor?.name ?? "";
+    if (!/Statistic|Check|Attack|Dialog/i.test(name)) return;
+    const root = html?.[0] ?? html;
+    ccsScrubStuntModifiers(root);
+  });
+  // === end scrub ===
+
   // Token HUD button (v12/13 safe)
   Hooks.on("renderTokenHUD", (app, htmlArg) => {
     const html = htmlArg instanceof jQuery ? htmlArg : $(htmlArg); // normalize
@@ -49,6 +86,22 @@ export function registerUI() {
     const mod = game.modules.get("foundry-creative-combat-stunts");
     if (mod) mod.api = { openStuntDialog, openPoolConfig, openWeaknessEditor };
   });
+
+  // === CCS: setting to optionally skip PF2e pre-roll dialog for PLAYERS (default: don't skip) ===
+  Hooks.once("init", () => {
+    try {
+      game.settings.register("creative-combat-stunts", "skipPlayerDialog", {
+        name: "Stunt: Skip PF2e pre-roll dialog for players",
+        hint: "When enabled, players will NOT see the PF2e pre-roll dialog for stunt rolls. GMs always see it.",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: false,
+      });
+    } catch (e) { /* safe if already registered */ }
+  });
+  // === end setting ===
+
 }
 
 /* ---------- dialogs ---------- */

@@ -370,6 +370,14 @@ export class PF2eAdapter {
     if (ctx.rollTwice === "keep-higher") rollOpts.rollTwice = "keep-higher";
     if (mods.length) rollOpts.modifiers = mods;
 
+    // Add skipDialog for PLAYERS based on module setting (GMs always see the dialog)
+    try {
+      rollOpts = {
+        ...(rollOpts || {}),
+        skipDialog: (!game.user?.isGM) && !!game.settings.get("creative-combat-stunts", "skipPlayerDialog")
+      };
+    } catch (_) {}
+
     const r = await attackFn(rollOpts);
 
     return {

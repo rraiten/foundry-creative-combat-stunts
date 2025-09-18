@@ -101,6 +101,7 @@ export class CCF {
     const displayTotal = d20 + displayMod;
 
     const content = await foundry.applications.handlebars.renderTemplate("modules/creative-combat-stunts/templates/chat-card.hbs",{
+      displayFormula, displayTotal,
       actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
       total: displayTotal, formula: displayFormula, dc: ctx.dc,
       dcStrike: ctx?._dcStrike ?? null,
