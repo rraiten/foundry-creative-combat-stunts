@@ -60,7 +60,7 @@ export async function openStuntDialog({ token, actor } = {}) {
   const sys = game?.system?.id ?? game.systemId ?? "";
   const target = Array.from(game.user?.targets ?? [])[0]?.actor ?? null;
   const skills = getSkillChoices(actor, sys);          // build choices
-  \1
+  
   const hideRollSource = (rollSources && rollSources.length <= 1);
   const effectiveRollKind = hideRollSource ? (rollSources?.[0]?.value ?? 'skill') : null; // keep simple for now
 

@@ -7,10 +7,12 @@
   {{/if}}
   {{#if rollTwice}} • Advantage{{/if}}
   {{#if coolNote}}<em>{{coolNote}}</em>{{/if}}</p>
+  {{#if tacticalRisk}} • <i>Risk (−2)</i>{{/if}}
+
   <p>Outcome: <b>{{degree}}</b>
   {{#if dcStrike}}<div class="subtle">Mapped: DC {{dc}} → AC {{dcStrike}} (DC Δ {{dcDelta}} / Mod Δ {{modDelta}})</div>{{/if}}
 
-    {{#if tacticalRisk}} • <i>Tactical Risk (−2)</i>{{/if}}
+    {{#if tacticalRisk}} • <i>Tactical Risk</i>{{/if}}
     {{#if triggerLabel}} • Trigger: <b>{{triggerLabel}}</b>{{/if}}
     {{#if spentPool}} • 🎬 +1 upgrade{{/if}}
     {{#if logExtras}} • {{logExtras}}{{/if}}

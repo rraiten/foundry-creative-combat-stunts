@@ -90,7 +90,7 @@ export class CCF {
     if (advUsed && ctx.rollTwice === "keep-higher") extra.push("🎲 Advantage consumed");
     if (poolSpent) extra.push("🎬 Cinematic Pool spent (+1 degree/upgrade)");
 
-    const content = await foundry.applications.handlebars.renderTemplate("modules/creative-combat-stunts/      actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
+    const content = await foundry.applications.handlebars.renderTemplate("modules/creative-combat-stunts/templates/chat-card.hbs",{
       actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
       total: result.total, formula: result.formula, dc: ctx.dc,
       dcStrike: ctx?._dcStrike ?? null,
@@ -99,7 +99,7 @@ export class CCF {
       rollTooltip: (await result?.roll?.getTooltip?.()) ?? null,
       degree: degreeTxt,
       coolBonus: ctx.coolBonus ?? 0,
-      coolNote: (ctx.coolBonus ? `(+${ctx.coolBonus} circumstance from flavor)` : (ctx.rollTwice === "keep-higher" ? "(Advantage used)" : "")),
+      coolNote: (ctx.coolBonus ? `(+${ctx.coolBonus} flavor)` : (ctx.rollTwice === "keep-higher" ? "(Advantage used)" : "")),
       rollTwice: ctx.rollTwice === "keep-higher",
       tacticalRisk: !!ctx.tacticalRisk, applied,
       spentPool: poolSpent ? true : false,
