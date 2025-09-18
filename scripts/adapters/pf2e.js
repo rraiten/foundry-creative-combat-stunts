@@ -10,6 +10,20 @@ const SKILL_TO_DEF = {
   thi: "reflex",
 };
 
+function normalizeSkillKey(k) {
+  const v = String(k || "").toLowerCase();
+  // Accept both short and long names; return short code
+  if (v === "acrobatics" || v === "acr") return "acr";
+  if (v === "athletics"  || v === "ath") return "ath";
+  if (v === "crafting"   || v === "cra") return "cra";
+  if (v === "medicine"   || v === "med") return "med";
+  if (v === "stealth"    || v === "ste") return "ste";
+  if (v === "survival"   || v === "sur") return "sur";
+  if (v === "thievery"   || v === "thi") return "thi";
+  return v; // others pass through (occultism, arcana, etc.)
+}
+
+
 function _getLevelBasedDC(actor) {
   const lvl = Number(actor?.system?.details?.level?.value ?? actor?.system?.details?.level ?? 0) || 0;
   const tbl = game.pf2e?.DCByLevel
@@ -19,19 +33,24 @@ function _getLevelBasedDC(actor) {
   return tbl?.[lvl] ?? (14 + lvl);
 }
 
+function _num(n, d=0) { const x = Number(n); return Number.isFinite(x) ? x : d; }
+
 function _getDefenseDC(target, defense) {
-  const sys = target?.system ?? {};
+  const sys   = target?.system ?? {};
   const saves = sys.saves ?? target?.saves ?? {};
   if (defense === "perception") {
-    return sys.attributes?.perception?.dc?.value ?? target?.attributes?.perception?.dc?.value ?? null;
+    return _num(sys.attributes?.perception?.dc?.value
+             ?? target?.attributes?.perception?.dc?.value
+             ?? null, null);
   }
-  return saves?.[defense]?.dc?.value ?? null;
+  // defense is "fortitude" | "reflex" | "will"
+  return _num(saves?.[defense]?.dc?.value ?? null, null);
 }
 
 export class PF2eAdapter {
   async buildContext({actor, target, options}){
     const rollKind = (options?.rollKind ?? "skill").toLowerCase();
-    const rollKey = options?.rollKey ?? "acr";
+    const rollKey = normalizeSkillKey(options?.rollKey ?? "acr");
     
     let dc;
     if (target) {
@@ -66,13 +85,29 @@ export class PF2eAdapter {
   }
 
   async degreeOfSuccess(result, ctx) {
-    if (!result) return null;
+    const dc = (ctx?._dcStrike ?? ctx?.dc) || 20;
+    const total = Number(result?.total ?? 0);
 
-    const dcForDos = (ctx?._dcStrike ?? ctx.dc) || 20;
-    const dos = game.pf2e.Check.degreeOfSuccess(result.total, dcForDos, { modifier: 0 });
-    return dos; // 0 CF,1 F,2 S,3 CS
+    // Try known PF2e entry points first
+    const api =
+      (game.pf2e?.Check && game.pf2e.Check.degreeOfSuccess) ||
+      game.pf2e?.degreeOfSuccess ||
+      CONFIG?.PF2E?.degreeOfSuccess ||
+      null;
+
+    if (typeof api === "function") {
+      try { return api(total, dc, { modifier: 0 }); } catch { /* fall through */ }
+    }
+
+    // Fallback: PF2e DoS rules (±10, then nat 20/1 step)
+    const d20 = Number(result?.roll?.dice?.find(d => d.faces === 20)?.total ?? 0);
+    let degree = (total >= dc + 10) ? 3 :
+                (total >= dc)      ? 2 :
+                (total <= dc - 10) ? 0 : 1;
+    if (d20 === 20) degree = Math.min(3, degree + 1);
+    else if (d20 === 1) degree = Math.max(0, degree - 1);
+    return degree;
   }
-
 
   async applyOutcome({ actor, target, ctx, degree, tacticalRisk }) {
     // Treat only crit + Tactical Risk as special; let PF2e Strike/crit-deck handle the outcome.
@@ -268,12 +303,14 @@ export class PF2eAdapter {
 
     if (Mod) {
       const delta = skillMod - currentAttack;
-      if (delta) mods.push(new Mod({ label: "Stunt (skill→strike)", modifier: delta, type: "untyped" }));
-      if (ctx.coolBonus) mods.push(new Mod({ label: "Stunt (cool)", modifier: Number(ctx.coolBonus) || 0, type: "circumstance" }));
+      if (delta) mods.push(new Mod({ label: `Stunt (skill→strike: ${ctx.rollKey})`, modifier: delta, type: "untyped" }));
+      if (ctx.tacticalRisk) {mods.push(new Mod({ label: "Stunt (risk)", modifier: -2, type: "untyped" }));
+}
+      if (ctx.coolBonus) mods.push(new Mod({ label: "Stunt (flavor)", modifier: Number(ctx.coolBonus) || 0, type: "circumstance" }));
 
       const targetAC = Number(target?.system?.attributes?.ac?.value ?? target?.attributes?.ac?.value ?? 0) || 0;
       const dcAdj = (ctx.dc && targetAC) ? (ctx.dc - targetAC) : 0;
-      if (dcAdj) mods.push(new Mod({ label: "Stunt (defense map)", modifier: dcAdj, type: "untyped" }));
+      if (dcAdj) mods.push(new Mod({ label: `Stunt (defense map ${ctx.dc}→AC ${targetAC})`, modifier: dcAdj, type: "untyped" }));
 
       // save for DoS/chat
       ctx._dcStrike = targetAC;
