@@ -97,6 +97,7 @@ export class CCF {
       _d20Die?.results?.[0]?.value  ??
       _d20Die?.total ??
       result?.roll?.terms?.find?.(t => t?.faces === 20)?.results?.[0]?.result ??
+      result?._ccsD20 ??            // <-- fallback if adapter provided it
       result?.roll?.d20 ??
       0
     );
@@ -117,7 +118,7 @@ export class CCF {
     const content = await foundry.applications.handlebars.renderTemplate("modules/creative-combat-stunts/templates/chat-card.hbs",{
       displayFormula, displayTotal, d20,  challengeText, actionName,
       actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
-      total: displayTotal, formula: displayFormula, dc: ctx.dc,
+      total: displayTotal, formula: displayFormula, dc: (ctx._dcStrike ?? ctx.dc),
       dcStrike: ctx?._dcStrike ?? null,
       dcDelta: (ctx?._dcStrike != null && ctx?.dc != null) ? (ctx._dcStrike - ctx.dc) : null,
       modDelta: (ctx?._dcStrike != null && ctx?.dc != null) ? (ctx._dcStrike - ctx.dc) : null,

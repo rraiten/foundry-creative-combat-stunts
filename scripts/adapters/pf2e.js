@@ -429,6 +429,13 @@ export class PF2eAdapter {
 
     const r = await attackFn(rollOpts);
 
+    // Help the card if it can’t find the die cleanly
+    try {
+      const d20die = r?.roll?.dice?.find?.(d => d?.faces === 20);
+      const val = d20die?.results?.[0]?.result ?? d20die?.results?.[0]?.value ?? d20die?.total;
+      if (Number.isFinite(val)) r._ccsD20 = Number(val);
+    } catch (_) {}
+
     return {
       total:   r?.total   ?? r?.roll?.total   ?? 0,
       formula: r?.formula ?? r?.roll?.formula ?? "d20",

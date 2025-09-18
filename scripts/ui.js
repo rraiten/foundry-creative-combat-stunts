@@ -114,7 +114,16 @@ export async function openStuntDialog({ token, actor } = {}) {
   const target = Array.from(game.user?.targets ?? [])[0]?.actor ?? null;
   
   // build skill stunt choices
-  const skills = getSkillChoices(actor, sys);          
+  const skills = getSkillChoices(actor, sys);
+  // Map short codes (e.g., THI) to human labels from PF2e if available
+  try {
+    const _skills = actor?.system?.skills ?? actor?.skills ?? {};
+    skills = (skills || []).map(s => ({
+      ...s,
+      label: _skills?.[s.value]?.label ?? _skills?.[s.value]?.name ?? s.label
+    }));
+  } catch (_) {}
+          
 
    // PF2e strikes list for "Attack" source
   const strikesRaw = actor.system?.actions ?? actor.system?.strikes ?? [];
