@@ -327,6 +327,9 @@ export class PF2eAdapter {
       0
     );
 
+    
+    ctx._skillMod = skillMod; // for chat-card display
+    
     // 3) current strike attack modifier
     const currentAttack =
       Number(strike?.totalModifier ?? strike?.attack?.totalModifier ?? strike?.mod) || 0;
