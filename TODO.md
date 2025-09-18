@@ -1,6 +1,9 @@
 # Creative Combat Stunts – TODO / Backlog
 
-## A. Dialog & UX Cleanup
+## A. Added features
+- [ ] **allow spell attacks as stunts**
+
+## B. Dialog & UX Cleanup
 - [ ] **Dialog polish**
   - Collapse long explanatory text into tooltips.
   - Use short checkboxes only (“Tactical Risk”, “Use Advantage”).
@@ -11,9 +14,6 @@
 - [ ] **Cinematic Pool polish**
   - Improve visibility & usability beyond combat tracker button.
   - Add clearer feedback when tokens are spent.
-
-## B. Added features
-- [ ] **allow spell attacks as stunts**
 
 ## C. Rules tighten
 - [ ] **stunt action economy**

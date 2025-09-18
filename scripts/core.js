@@ -119,6 +119,10 @@ export class CCF {
     const challengeText = challenge ? (challenge > 0 ? `+${challenge}` : `${challenge}`) : "";
     const actionName = ctx?.rollLabel ?? (ctx?.rollKey?.toUpperCase?.() ?? "Skill");
 
+    const appliedFallback = ((!applied || (!applied.targetEffect && !applied.selfEffect))
+      && (degreeTxt === "Critical Success" || degreeTxt === "Critical Failure"))
+      ? "Draw a Creative Stunt Card" : null;
+
     const content = await foundry.applications.handlebars.renderTemplate("modules/creative-combat-stunts/templates/chat-card.hbs",{
       displayFormula, displayTotal, d20,  challengeText, actionName,
       actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
@@ -132,7 +136,7 @@ export class CCF {
       coolBonus: ctx.coolBonus ?? 0,
       coolNote: (ctx.coolBonus ? `(+${ctx.coolBonus} Flavor)` : (ctx.rollTwice === "keep-higher" ? "(Advantage used)" : "")),
       rollTwice: ctx.rollTwice === "keep-higher",
-      tacticalRisk: !!ctx.tacticalRisk, applied,
+      tacticalRisk: !!ctx.tacticalRisk, applied, appliedFallback,
       spentPool: poolSpent ? true : false,
       triggerLabel: ctx.trigger?.label || null,
       logExtras: extra.join(" • "),

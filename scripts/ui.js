@@ -118,10 +118,11 @@ export async function openStuntDialog({ token, actor } = {}) {
   // Map short codes (e.g., THI) to human labels from PF2e if available
   try {
     const _skills = actor?.system?.skills ?? actor?.skills ?? {};
-    skills = (skills || []).map(s => ({
-      ...s,
-      label: _skills?.[s.value]?.label ?? _skills?.[s.value]?.name ?? s.label
-    }));
+    skills = (skills || []).map(s => {
+      const k = String(s?.value ?? "").toLowerCase();
+      const pretty = _skills?.[k]?.label ?? _skills?.[k]?.name;
+      return pretty ? { ...s, label: pretty } : s;
+    });
   } catch (_) {}
           
 
