@@ -9,14 +9,20 @@
     {{#if spentPool}} • 🎬 +1 upgrade{{/if}}
     {{#if logExtras}} • {{logExtras}}{{/if}}
   </p>
-{{#if applied}}
-  <p><i>Applied:</i>
-    {{#if applied.targetEffect}}{{applied.targetEffect}}{{/if}}
-    {{#if applied.selfEffect}}{{#if applied.targetEffect}}, {{/if}}{{applied.selfEffect}}{{/if}}
-  </p>
-{{else if appliedFallback}}
-  <p><i>Applied:</i> {{appliedFallback}}</p>
-{{/if}}
+
+  {{!-- Applied block with clear separation --}}
+  {{#if hasAnyApplied}}
+    {{#if appliedTargetText}}
+      <p><i>Applied to Target:</i> {{appliedTargetText}}</p>
+    {{/if}}
+    {{#if appliedSelfText}}
+      <p><i>Applied to Self:</i> {{appliedSelfText}}</p>
+    {{/if}}
+  {{else if appliedFallback}}
+    <p><i>Applied:</i> {{appliedFallback}}</p>
+  {{/if}}
+
+
 
 
 </div>

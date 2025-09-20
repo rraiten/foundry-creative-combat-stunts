@@ -115,6 +115,65 @@ function _getSpellAttackModPF2(actor) {
   return null;
 }
 
+// --- Robust kept-d20 extractor (handles kh/kl, rerolls, pools)
+function _extractKeptD20(resultOrRoll) {
+  // 0) Trust adapter-set value if present
+  const pre = Number(resultOrRoll?._ccsD20);
+  if (Number.isFinite(pre) && pre) return pre;
+
+  const roll = resultOrRoll?.roll ?? resultOrRoll;
+  const dice = Array.isArray(roll?.dice) ? roll.dice : [];
+
+  // 1) Gather all d20 results across all d20 Die terms
+  const candidates = [];
+  for (const die of dice) {
+    if (Number(die?.faces) !== 20) continue;
+    const res = Array.isArray(die?.results) ? die.results : [];
+    for (const r of res) {
+      const v = Number(r?.result ?? r?.value ?? r?.roll ?? r?.total);
+      if (!Number.isFinite(v)) continue;
+      const kept = (r?.discarded !== true) && (r?.active !== false);
+      const rerolled = (r?.rerolled === true) || (r?.isRerolled === true);
+      candidates.push({ v, kept, rerolled, discarded: r?.discarded === true });
+    }
+  }
+
+  // 2) Prefer kept & not rerolled → kept → non-discarded → first seen
+  let pick =
+    candidates.find(c => c.kept && !c.rerolled) ||
+    candidates.find(c => c.kept) ||
+    candidates.find(c => !c.discarded) ||
+    candidates[0];
+  if (pick) return pick.v;
+
+  // 3) Recurse into PoolTerm sub-rolls (fortune/misfortune often creates pools)
+  const terms = Array.isArray(roll?.terms) ? roll.terms : [];
+  for (const t of terms) {
+    // PoolTerm has .rolls (array of sub-Roll)
+    if (Array.isArray(t?.rolls)) {
+      for (const sub of t.rolls) {
+        const v = _extractKeptD20({ roll: sub });
+        if (Number.isFinite(v)) return v;
+      }
+    }
+    // Direct Die term inside terms (edge cases)
+    if (Number(t?.faces) === 20 && Array.isArray(t?.results)) {
+      const keptRes = t.results.find(r => r?.discarded !== true && r?.active !== false);
+      const v = Number(keptRes?.result ?? keptRes?.value);
+      if (Number.isFinite(v)) return v;
+    }
+  }
+
+  // 4) PF2e CheckRoll may expose a d20s accessor (best-effort)
+  try {
+    const d20s = roll?.d20s;
+    const v = Array.isArray(d20s) ? Number(d20s.find?.(x => Number.isFinite(Number(x?.value)))?.value) : null;
+    if (Number.isFinite(v)) return v;
+  } catch (_) {}
+
+  return null;
+}
+
 
 export class PF2eAdapter {
   async buildContext({actor, target, options}){
@@ -204,17 +263,12 @@ export class PF2eAdapter {
     }
 
     // Fallback: PF2e DoS rules (±10, then nat 20/1 step)
-    const d20 = Number(
-      result?.roll?.dice?.find?.(d => d?.faces === 20)?.results?.[0]?.result ??
-      result?.roll?.dice?.find?.(d => d?.faces === 20)?.results?.[0]?.value  ??
-      result?.roll?.dice?.find?.(d => d?.faces === 20)?.total ??
-      result?._ccsD20 ??            // adapter-set fallback (present in your build)
-      result?.roll?.d20 ?? 0
-    );
+    const d20 = Number(_extractKeptD20(result) ?? 0);
 
     let degree = (total >= dc + 10) ? 3 :
                 (total >= dc)      ? 2 :
                 (total <= dc - 10) ? 0 : 1;
+                
     if (d20 === 20) degree = Math.min(3, degree + 1);
     else if (d20 === 1) degree = Math.max(0, degree - 1);
     return degree;
@@ -537,11 +591,9 @@ export class PF2eAdapter {
 
     const r = await attackFn(rollOpts);
 
-    // Help the card if it can’t find the die cleanly
     try {
-      const d20die = r?.roll?.dice?.find?.(d => d?.faces === 20);
-      const val = d20die?.results?.[0]?.result ?? d20die?.results?.[0]?.value ?? d20die?.total;
-      if (Number.isFinite(val)) r._ccsD20 = Number(val);
+      const v = _extractKeptD20(r);
+      if (Number.isFinite(v)) r._ccsD20 = v;
     } catch (_) {}
 
     return {

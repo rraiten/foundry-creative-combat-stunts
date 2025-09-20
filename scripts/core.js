@@ -90,6 +90,25 @@ export class CCF {
   async postChat({actor, target, ctx, result, applied, degree, poolSpent, advUsed}){
     const degrees = ["Critical Failure","Failure","Success","Critical Success"];
     const degreeTxt = (degree != null && degrees[degree]) ? degrees[degree] : (result?.outcome || "—");
+
+    // --- Normalize applied effects for clear chat output (no helper needed in HBS)
+    const toText = (v) => {
+      if (Array.isArray(v)) return v.filter(Boolean).join(", ");
+      const s = (v ?? "").toString().trim();
+      return s;
+    };
+
+    const appliedTargetText = toText(applied?.targetEffect);
+    const appliedSelfText   = toText(applied?.selfEffect);
+
+    // If both are empty strings, treat as "no applied" so the template uses the fallback
+    const hasAnyApplied = !!(appliedTargetText || appliedSelfText);
+
+    // expose to template (assuming you build a `data` / `view` object for renderTemplate)
+    data.appliedTargetText = appliedTargetText || null;
+    data.appliedSelfText   = appliedSelfText   || null;
+    data.hasAnyApplied     = hasAnyApplied;
+
     const extra = [];
     if (advUsed && ctx.rollTwice === "keep-higher") extra.push("🎲 Advantage consumed");
     if (poolSpent) extra.push("🎬 Cinematic Pool spent (+1 degree/upgrade)");

@@ -180,7 +180,7 @@ export async function openStuntDialog({ token, actor } = {}) {
       // Show the mod so players understand what they’re choosing
       strikes.unshift({
         value: "__spell_attack__",
-        label: `Spell Attack (+${spellAtk >= 0 ? spellAtk : String(spellAtk)})`,
+        label: `Spell Attack`,
       });
     }
   }
