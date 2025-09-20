@@ -16,6 +16,55 @@ const getFlavorOptions = () =>
         { value: 2, label: "So Cool (Advantage +2)" },
       ]);
 
+// --- PF2e: try to read a "spell attack" modifier robustly (best-effort, many fallbacks)
+function getSpellAttackModPF2(actor) {
+  if (!actor) return null;
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+
+  try {
+    // 1) Preferred: PF2e statistic getter (if present)
+    const stat =
+      typeof actor.getStatistic === "function"
+        ? (actor.getStatistic("spell-attack") || actor.getStatistic("spellAttack"))
+        : null;
+    const fromStat =
+      num(stat?.check?.mod) ?? num(stat?.modifier) ?? num(stat?.mod);
+    if (fromStat != null) return fromStat;
+  } catch (_) {}
+
+  try {
+    // 2) Common places people find it in system data (broad fallbacks)
+    const sys = actor.system || {};
+    const candidates = [
+      sys?.attributes?.spellAttack?.mod,
+      sys?.attributes?.spellcasting?.attack?.mod,
+      sys?.proficiencies?.spellcasting?.attack?.mod,
+      sys?.spells?.attack?.mod,
+      sys?.statistics?.spellattack?.mod,
+      sys?.statistics?.["spell-attack"]?.mod,
+    ];
+    for (const c of candidates) {
+      const v = num(c);
+      if (v != null) return v;
+    }
+  } catch (_) {}
+
+  try {
+    // 3) Spellcasting entries (if API exists)
+    const entries = actor?.spellcasting?.contents ?? actor?.spellcasting ?? [];
+    const arr = Array.isArray(entries) ? entries : Object.values(entries ?? {});
+    for (const e of arr) {
+      const v =
+        num(e?.statistic?.check?.mod) ??
+        num(e?.statistic?.modifier) ??
+        num(e?.attack?.mod);
+      if (v != null) return v;
+    }
+  } catch (_) {}
+
+  return null;
+}
+
 /* ---------- UI registration ---------- */
 export function registerUI() {
 // Combat tracker footer button
@@ -117,11 +166,24 @@ export async function openStuntDialog({ token, actor } = {}) {
   let skills = getSkillChoices(actor, sys);
 
    // PF2e strikes list for "Attack" source
+  // PF2e strikes list for "Attack" source
   const strikesRaw = actor.system?.actions ?? actor.system?.strikes ?? [];
   const strikes = (Array.isArray(strikesRaw) ? strikesRaw : []).map(s => ({
     value: (s?.slug ?? s?.item?.slug ?? s?.item?.id ?? s?.label ?? s?.item?.name ?? "").toString().toLowerCase(),
     label: (s?.label ?? s?.item?.name ?? "Strike")
   }));
+
+  // PF2e only: add a synthetic "Spell Attack" option if the actor has one
+  if ((game?.system?.id ?? game.systemId ?? "") === "pf2e") {
+    const spellAtk = getSpellAttackModPF2(actor);
+    if (Number.isFinite(spellAtk)) {
+      // Show the mod so players understand what they’re choosing
+      strikes.unshift({
+        value: "__spell_attack__",
+        label: `Spell Attack (+${spellAtk >= 0 ? spellAtk : String(spellAtk)})`,
+      });
+    }
+  }
 
   const rollSources = [
     { value: "skill", label: "Skill" },

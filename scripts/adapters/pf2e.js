@@ -68,6 +68,53 @@ function _getDefenseDC(target, defense) {
   return null;
 }
 
+// --- PF2e: read a "spell-attack" modifier robustly
+function _getSpellAttackModPF2(actor) {
+  if (!actor) return null;
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+
+  try {
+    const stat =
+      typeof actor.getStatistic === "function"
+        ? (actor.getStatistic("spell-attack") || actor.getStatistic("spellAttack"))
+        : null;
+    const fromStat =
+      num(stat?.check?.mod) ?? num(stat?.modifier) ?? num(stat?.mod);
+    if (fromStat != null) return fromStat;
+  } catch (_) {}
+
+  try {
+    const sys = actor.system || {};
+    const candidates = [
+      sys?.attributes?.spellAttack?.mod,
+      sys?.attributes?.spellattack?.mod,
+      sys?.attributes?.spellcasting?.attack?.mod,
+      sys?.proficiencies?.spellcasting?.attack?.mod,
+      sys?.spells?.attack?.mod,
+      sys?.statistics?.spellattack?.mod,
+      sys?.statistics?.["spell-attack"]?.mod,
+    ];
+    for (const c of candidates) {
+      const v = num(c);
+      if (v != null) return v;
+    }
+  } catch (_) {}
+
+  try {
+    const entries = actor?.spellcasting?.contents ?? actor?.spellcasting ?? [];
+    const arr = Array.isArray(entries) ? entries : Object.values(entries ?? {});
+    for (const e of arr) {
+      const v =
+        num(e?.statistic?.check?.mod) ??
+        num(e?.statistic?.modifier) ??
+        num(e?.attack?.mod);
+      if (v != null) return v;
+    }
+  } catch (_) {}
+
+  return null;
+}
+
 
 export class PF2eAdapter {
   async buildContext({actor, target, options}){
@@ -349,16 +396,27 @@ export class PF2eAdapter {
 
     // prefer the requested strike when rollKind=attack
     let strike;
+    let _isSpellAttackChoice = false;
     if ((ctx.rollKind || "").toLowerCase() === "attack" && ctx.rollKey) {
       const key = norm(ctx.rollKey);
-      strike = strikes.find(s =>
-        norm(s?.slug) === key ||
-        norm(s?.item?.slug) === key ||
-        norm(s?.item?.id) === key ||
-        norm(s?.label) === key ||
-        norm(s?.item?.name) === key
-      );
+      _isSpellAttackChoice = (key === "__spell_attack__");
+      if (!_isSpellAttackChoice) {
+        strike = strikes.find(s =>
+          norm(s?.slug) === key ||
+          norm(s?.item?.slug) === key ||
+          norm(s?.item?.id) === key ||
+          norm(s?.label) === key ||
+          norm(s?.item?.name) === key
+        );
+      }
     }
+
+    // fallback if nothing matched
+    strike = strike ||
+      strikes.find(s => s?.item?.system?.traits?.value?.includes?.("unarmed")) ||
+      strikes.find(s => (s?.item?.system?.range?.value ?? null) == null) ||
+      strikes[0];
+
     
     // fallback if nothing matched
     strike = strike ||
@@ -394,11 +452,26 @@ export class PF2eAdapter {
     ctx._attackMod = Number(currentAttack) || 0;   // for chat-card display when rollKind=attack
     if ((String(ctx.rollKind || '').toLowerCase() === 'attack')) {
       ctx.rollLabel = strike?.label ?? strike?.item?.name ?? ctx.rollLabel ?? 'Strike';
+      if (_isSpellAttackChoice) ctx.rollLabel = "Spell Attack";
     }
+
 
     // 4) build stunt modifiers
     const Mod  = game.pf2e?.Modifier ?? game.pf2e?.modifiers?.Modifier;
     const mods = [];
+
+    // A0) If the synthetic "Spell Attack" was chosen, shim to the actor's spell-attack mod
+    if (_isSpellAttackChoice && Mod) {
+      const spellAttackMod = _getSpellAttackModPF2(actor);
+      if (Number.isFinite(spellAttackMod)) {
+        const delta = spellAttackMod - (Number(currentAttack) || 0);
+        if (delta) {
+          mods.push(new Mod({ label: "Stunt (spell attack→strike)", modifier: delta, type: "untyped" }));
+        }
+        // reflect in chat display
+        ctx._attackMod = spellAttackMod;
+      }
+    }
 
     // A) remap strike total to the skill total (ONLY for skill-based stunts)
     const deltaSkillVsStrike = skillMod - currentAttack;
