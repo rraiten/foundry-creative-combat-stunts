@@ -16,26 +16,25 @@
   </div>
   {{#if isPF2}}
     <div class="form-group" id="ccs-adv-row" style="display:none;">
-      <label>
+      <label title="Roll twice and keep the higher result for this stunt. Replaces the Flavor (+Cool) circumstance bonus for this roll. Once per encounter.">
         <input type="checkbox" name="advNow"/>
-        Use advantage instead of circumstance bonus (once per encounter)
+        Use Advantage
       </label>
     </div>
   {{/if}}
 
   <hr/>
   <div class="form-group">
-    <label><input type="checkbox" name="risk"/> Tactical Risk (Harder DC; success upgrades; failure setback)</label>
+    <label title="Apply a penalty to this stunt’s attack roll. Adds an effect on target (success) or self (failure)">
+      <input type="checkbox" name="risk"/> Tactical Risk
+    </label>
   </div>
 
   {{#if poolEnabled}}
   <hr/>
   <div class="form-group">
-    <label><input type="checkbox" name="spendPool" {{#if poolRemaining}}{{else}}disabled{{/if}}/> Spend Cinematic Pool (PF2e: +1 degree; 5e: miss→hit, hit→crit)</label>
-  </div>
-  {{/if}}
-
-  {{#unless hideRollSource}}
+    <label><input type="checkbox" name="spendPool" {{#if poolRemaining}}{{else}}disabled{{/if}}/> Spend Cinematic Pool (PF2e: +1 degree; 5e: miss→hit, hit→c  {{#unless hideRollSource}}
+  <d  {{#unless hideRollSource}}
     <div class="form-group">
       <label>Roll Source</label>
       <select name="rollKind">
@@ -65,17 +64,16 @@
       {{/each}}
     </select>
   </div>
-
-  <div class="form-group">
-  <label>Challenge adjustments</label>
+ </<div class="form-group">
+  <label>Challenge</label>
   <select name="challengeAdj">
     <option value="4">Major weakness (+4)</option>
     <option value="2">Weakness (+2)</option>
-    <option value="0" selected>Normal (±0)</option>
+    <option value="0" selected>Normal</option>
     <option value="-2">Resistance (−2)</option>
     <option value="-4">Major resistance (−4)</option>
   </select>
 </div>
-
+  </div>
 
 </div>
