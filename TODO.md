@@ -9,7 +9,10 @@
   - Improve visibility & usability beyond combat tracker button.
   - Add clearer feedback when tokens are spent.
 
-## C. Boss Weakness improvements
+## C. Boss Mechanics
+- [ ] **Weakness Polish**
+- [ ] **Multiple Phases**
 
 ## D. Rules tighten
+- [ ] **Tactical Risk + flavor should fail forward**
 - [ ] **stunt action economy**
