@@ -577,16 +577,16 @@ export class PF2eAdapter {
     }
 
     // 5) roll the strike (native PF2e attack card → crit decks can trigger)
-    const rollOpts = { createMessage: true, skipDialog: true };
+    let rollOpts = { createMessage: true, skipDialog: true };
     if (ctx.rollTwice === "keep-higher") rollOpts.rollTwice = "keep-higher";
     if (mods.length) rollOpts.modifiers = mods;
 
     // Add skipDialog for PLAYERS based on module setting (GMs always see the dialog)
     try {
-      rollOpts = {
-        ...(rollOpts || {}),
-        skipDialog: (!game.user?.isGM) && !!game.settings.get("creative-combat-stunts", "skipPlayerDialog")
-      };
+      const skipPref = !!game.settings.get("creative-combat-stunts", "skipPlayerDialog");
+      // const wantSkip = game.user?.isGM ? true : skipPref;
+      const wantSkip = skipPref; // applies uniformly; change to the line above if you want GM-only behavior
+      rollOpts.skipDialog = wantSkip;
     } catch (_) {}
 
     const r = await attackFn(rollOpts);

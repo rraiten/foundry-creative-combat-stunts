@@ -519,42 +519,34 @@ function openSimpleDialogV2({ title, content, buttons = [] }) {
     return dlg;
   }
 
-/* ---------- per-view masking for DCs / mapping ---------- */
-Hooks.on("renderChatMessage", (_message, html) => {
+/* ---------- chat message post-render: CCS DC mask + hide internal shim mods ---------- */
+Hooks.on("renderChatMessageHTML", (_message, html) => {
   try {
     const root = html?.[0] ?? html;
     if (!root?.querySelector) return;
-    if (!root.querySelector('.ccs-card')) return;
     const isGM = !!game.user?.isGM;
 
-    const dcs = root.querySelectorAll('.ccs-dc');
-    dcs.forEach(el => {
-      const dc = el.getAttribute('data-dc') ?? '';
-      el.textContent = isGM ? dc : '??';
-    });
+    // (1) CCS card-only: mask DCs for players, show GM-only bits to GMs
+    if (root.querySelector('.ccs-card')) {
+      const dcs = root.querySelectorAll('.ccs-dc');
+      dcs.forEach(el => {
+        const dc = el.getAttribute('data-dc') ?? '';
+        el.textContent = isGM ? dc : '??';
+      });
 
-    const gmOnly = root.querySelectorAll('.ccs-gm-only');
-    gmOnly.forEach(el => { el.style.display = isGM ? '' : 'none'; });
-  } catch (e) { /* no-op */ }
-});
+      const gmOnly = root.querySelectorAll('.ccs-gm-only');
+      gmOnly.forEach(el => { el.style.display = isGM ? '' : 'none'; });
+    }
 
-
-// Hide internal stunt shim modifiers from players (keep visible to GMs)
-Hooks.on("renderChatMessage", (_message, html) => {
-  try {
-    const root = html?.[0] ?? html;
-    if (!root?.querySelector) return;
-    // Only act on our cards or PF2e attack cards
-    const isGM = !!game.user?.isGM;
-    if (isGM) return;
-
-    // Remove "Stunt (skill→strike...)" and "Stunt (defense map ...)" lines from the tooltip
-    const lists = root.querySelectorAll('.dice-tooltip li, .dice-modifiers li');
-    lists.forEach(li => {
-      const t = (li.textContent || "").toLowerCase();
-      if (t.includes("stunt (skill") || t.includes("stunt (defense map")) {
-        li.remove();
-      }
-    });
+    // (2) For players only: hide internal stunt shim lines in the dice tooltip
+    if (!isGM) {
+      const lists = root.querySelectorAll('.dice-tooltip li, .dice-modifiers li');
+      lists.forEach(li => {
+        const t = (li.textContent || "").toLowerCase();
+        if (t.includes("stunt (skill") || t.includes("stunt (defense map")) {
+          li.remove();
+        }
+      });
+    }
   } catch (_) {}
-}); // ccs-hide-stunt-mods
+});

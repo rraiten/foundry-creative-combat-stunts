@@ -100,14 +100,8 @@ export class CCF {
 
     const appliedTargetText = toText(applied?.targetEffect);
     const appliedSelfText   = toText(applied?.selfEffect);
+    const hasAnyApplied     = !!(appliedTargetText || appliedSelfText);
 
-    // If both are empty strings, treat as "no applied" so the template uses the fallback
-    const hasAnyApplied = !!(appliedTargetText || appliedSelfText);
-
-    // expose to template (assuming you build a `data` / `view` object for renderTemplate)
-    data.appliedTargetText = appliedTargetText || null;
-    data.appliedSelfText   = appliedSelfText   || null;
-    data.hasAnyApplied     = hasAnyApplied;
 
     const extra = [];
     if (advUsed && ctx.rollTwice === "keep-higher") extra.push("🎲 Advantage consumed");
@@ -158,6 +152,9 @@ export class CCF {
       tacticalRisk: !!ctx.tacticalRisk, applied, appliedFallback,
       spentPool: poolSpent ? true : false,
       triggerLabel: ctx.trigger?.label || null,
+      hasAnyApplied,
+      appliedTargetText: appliedTargetText || null,
+      appliedSelfText:   appliedSelfText   || null,
       logExtras: extra.join(" • "),
     });
     ChatMessage.create({speaker: ChatMessage.getSpeaker({actor}), content});
