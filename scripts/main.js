@@ -2,6 +2,8 @@ import { CCF } from "./core.js";
 import { registerUI } from "./ui.js";
 import { PF2eAdapter } from "./adapters/pf2e.js";
 import { DnD5eAdapter } from "./adapters/dnd5e.js";
+import { CCSWeaknessTemplatesManager } from "./weakness-templates-ui.js";
+
 
 Hooks.once("init", () => {
   game.ccf = new CCF();

@@ -29,7 +29,8 @@
     "scripts/adapters/pf2e.js",
     "scripts/adapters/dnd5e.js",
     "scripts/weakness.js",
-    "scripts/weakness-ui.js"
+    "scripts/weakness-ui.js",
+    "scripts/weakness-templates-ui.js"
   ],
   "styles": [
     "styles/ccf.css"

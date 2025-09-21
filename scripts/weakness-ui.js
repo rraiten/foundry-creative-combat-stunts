@@ -39,7 +39,7 @@ export class CCSWeaknessManager extends FormApplication {
 
   async _onAddCustom() {
     const list = getActorWeaknesses(this.actor);
-    const rid = (crypto.randomUUID?.() || randomID());
+    const rid = (crypto.randomUUID?.() || foundry.utils.randomID());
     list.push({
       id: rid,
       label: "New Weakness",
