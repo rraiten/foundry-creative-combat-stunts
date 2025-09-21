@@ -7,11 +7,18 @@ Hooks.once("init", () => {
   game.ccf = new CCF();
   // Actor Weakness Templates (global, optional)
   game.settings.register("creative-combat-stunts","weaknessTemplates",{
-    scope:"world", config:true, type:Object, default:[],
-    name:"Weakness Templates (CCS)",
-    hint:"Reusable templates for actor-specific weaknesses. Manage per-actor via the CCS button on the actor sheet."
+    scope:"world", config:false, type:Array, default:[],
   });
-  
+
+  // Add a config menu entry to open the manager
+  game.settings.registerMenu("creative-combat-stunts","weaknessTemplatesMenu",{
+    name: "Weakness Templates (CCS)",
+    label: "Manage Templates",
+    hint: "Reusable weaknesses you can import into actors.",
+    type: CCSWeaknessTemplatesManager,
+    restricted: true
+  });
+
   // Settings (PF2e-only setting still exists harmlessly on 5e but UI hides it)
   game.settings.register("creative-combat-stunts","pf2eAdvantageOnce",{
     scope:"world", config:true, type:Boolean, default:true,

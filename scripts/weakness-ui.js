@@ -84,15 +84,27 @@ export class CCSWeaknessManager extends FormApplication {
   }
 }
 
-// Header button on actor sheets (GM only)
-Hooks.on("renderActorSheet", (sheet, html, data) => {
+// Header button on actor sheets (GM only) — idempotent
+Hooks.on("renderActorSheet", (sheet, html) => {
   if (!game.user?.isGM) return;
-  const header = html.closest(".app").find(".window-header .window-title");
+
+  const app = html.closest(".app");                 // the sheet root
+  const header = app.find(".window-header .window-title");
   if (!header.length) return;
+
+  // Remove any existing CCS button in this sheet before adding a fresh one
+  app.find(".ccs-weaknesses-btn").remove();
+
   const btn = $(`
     <a class="ccs-weaknesses-btn" title="Creative Combat Stunts – Weaknesses">
       <i class="fas fa-bolt"></i> CCS
-    </a>`);
-  btn.on("click", () => new CCSWeaknessManager(sheet.actor).render(true));
+    </a>
+  `);
+
+  // Namespace the click handler to avoid stacking multiple listeners
+  btn.off("click.ccs").on("click.ccs", () => {
+    new CCSWeaknessManager(sheet.actor).render(true);
+  });
+
   header.after(btn);
 });
