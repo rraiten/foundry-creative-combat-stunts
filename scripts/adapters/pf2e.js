@@ -1,4 +1,6 @@
 import { openCritPrompt, chooseRiderDialog } from "../ui.js";
+import { actorHasWeaknesses, applyActorWeaknessesPF2e } from "../weakness.js";
+
 
 // --- Skill → defense map (only special-cased skills listed)
 const SKILL_TO_DEF = {
@@ -285,26 +287,47 @@ export class PF2eAdapter {
     // If no Tactical Risk, CCS applies nothing.
     if (!tacticalRisk) return null;
 
+    // Prepare weakness integration
+    let weakTexts = [];
+
+
     // Non-crit outcomes with Tactical Risk
     if (degree >= 2) {
       // Success: trigger if configured, else rider, else default off-guard
       if (ctx.trigger) {
         await this.applyTriggerEffect(target, ctx.trigger, degree);
-        return { targetEffect: ctx.trigger.label };
+        if (actorHasWeaknesses(target)) {
+          const wr = await applyActorWeaknessesPF2e(this, ctx, target, degree);
+          degree = wr.degree;
+          weakTexts = wr.texts;
+        }
+        return { targetEffect: [ctx.trigger.label, ...weakTexts].filter(Boolean) };
       }
-      const sel = await chooseRiderDialog("success");
-      if (sel) {
-        await this.applyConfiguredEffect(target, sel, true);
-        return { targetEffect: sel };
+
+      const rider = await chooseRiderDialog("success");
+      if (rider) {
+        await this.applyConfiguredEffect(target, rider, true);
+        if (actorHasWeaknesses(target)) {
+          const wr = await applyActorWeaknessesPF2e(this, ctx, target, degree);
+          degree = wr.degree;
+          weakTexts = wr.texts;
+        }
+        return { targetEffect: [rider, ...weakTexts].filter(Boolean) };
       }
+
       await this.applyCondition(target, "off-guard");
-      return { targetEffect: "off-guard (default)" };
+      if (actorHasWeaknesses(target)) {
+        const wr = await applyActorWeaknessesPF2e(this, ctx, target, degree);
+        degree = wr.degree;
+        weakTexts = wr.texts;
+      }
+      return { targetEffect: ["off-guard (default)", ...weakTexts].filter(Boolean) };
     } else {
       // Failure (non-crit): rider on self or default prone
-      const sel = await chooseRiderDialog("failure");
-      if (sel) {
-        await this.applyConfiguredEffect(actor, sel, false);
-        return { selfEffect: sel };
+      const rider = await chooseRiderDialog("failure");
+      if (rider) {
+        await this.applyConfiguredEffect(actor, rider, false);
+        return { selfEffect: rider };
       }
       await this.applyCondition(actor, "prone");
       return { selfEffect: "prone (default)" };

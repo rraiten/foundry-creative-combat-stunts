@@ -1,0 +1,61 @@
+<div class="ccs-weakness-manager p-2">
+  <div class="flexrow" style="gap: 0.5rem; align-items: center;">
+    <label>Import from Template:</label>
+    <select name="templateId">
+      <option value="">— Choose —</option>
+      {{#each templates as |t|}}
+        <option value="{{t.id}}">{{t.label}}</option>
+      {{/each}}
+    </select>
+    <button type="button" data-action="add-template">Add</button>
+    <button type="button" data-action="add-custom">Add Custom</button>
+  </div>
+
+  <hr/>
+
+  <table class="ccs-weakness-table" style="width: 100%;">
+    <thead>
+      <tr>
+        <th>On</th>
+        <th>Label</th>
+        <th>Trigger Kind</th>
+        <th>Key/Trait</th>
+        <th>Effect</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each weaknesses as |w|}}
+      <tr>
+        <td><button type="button" data-action="toggle" data-id="{{w.id}}">{{#if w.enabled}}✓{{else}}✗{{/if}}</button></td>
+        <td><input type="text" value="{{w.label}}" data-id="{{w.id}}" data-field="label" /></td>
+        <td>
+          <select data-id="{{w.id}}" data-field="trigger.kind">
+            {{#select w.trigger.kind}}
+              <option value="attack">attack</option>
+              <option value="skill">skill</option>
+              <option value="spell">spell</option>
+              <option value="trait">trait</option>
+              <option value="condition">condition</option>
+            {{/select}}
+          </select>
+        </td>
+        <td>
+          <input type="text" placeholder="key or trait" value="{{w.trigger.key}}" data-id="{{w.id}}" data-field="trigger.key" />
+          <input type="text" placeholder="trait" value="{{w.trigger.trait}}" data-id="{{w.id}}" data-field="trigger.trait" />
+        </td>
+        <td>
+          <select data-id="{{w.id}}" data-field="effect.type">
+            {{#select w.effect.type}}
+              <option value="apply-condition">apply-condition</option>
+              <option value="degree-bump">degree-bump</option>
+            {{/select}}
+          </select>
+          <input type="text" placeholder="value (e.g. dazzled or 1)" value="{{w.effect.value}}" data-id="{{w.id}}" data-field="effect.value" />
+        </td>
+        <td><button type="button" data-action="delete" data-id="{{w.id}}">🗑</button></td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+</div>

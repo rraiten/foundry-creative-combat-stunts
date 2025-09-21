@@ -5,6 +5,13 @@ import { DnD5eAdapter } from "./adapters/dnd5e.js";
 
 Hooks.once("init", () => {
   game.ccf = new CCF();
+  // Actor Weakness Templates (global, optional)
+  game.settings.register("creative-combat-stunts","weaknessTemplates",{
+    scope:"world", config:true, type:Object, default:[],
+    name:"Weakness Templates (CCS)",
+    hint:"Reusable templates for actor-specific weaknesses. Manage per-actor via the CCS button on the actor sheet."
+  });
+  
   // Settings (PF2e-only setting still exists harmlessly on 5e but UI hides it)
   game.settings.register("creative-combat-stunts","pf2eAdvantageOnce",{
     scope:"world", config:true, type:Boolean, default:true,
