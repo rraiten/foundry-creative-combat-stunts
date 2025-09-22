@@ -2,24 +2,13 @@ import { CCF } from "./core.js";
 import { registerUI } from "./ui.js";
 import { PF2eAdapter } from "./adapters/pf2e.js";
 import { DnD5eAdapter } from "./adapters/dnd5e.js";
-import { CCSWeaknessTemplatesManager } from "./weakness-templates-ui.js";
+import { registerWeaknessSettings } from "./weakness/index.js";
 
 
 Hooks.once("init", () => {
   game.ccf = new CCF();
   // Actor Weakness Templates (global, optional)
-  game.settings.register("creative-combat-stunts","weaknessTemplates",{
-    scope:"world", config:false, type:Array, default:[],
-  });
-
-  // Add a config menu entry to open the manager
-  game.settings.registerMenu("creative-combat-stunts","weaknessTemplatesMenu",{
-    name: "Weakness Templates (CCS)",
-    label: "Manage Templates",
-    hint: "Reusable weaknesses you can import into actors.",
-    type: CCSWeaknessTemplatesManager,
-    restricted: true
-  });
+  registerWeaknessSettings();
 
   // Settings (PF2e-only setting still exists harmlessly on 5e but UI hides it)
   game.settings.register("creative-combat-stunts","pf2eAdvantageOnce",{

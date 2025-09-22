@@ -18,19 +18,19 @@
     "minimum": "12",
     "verified": "13"
   },
-  "system": [
-    "pf2e",
-    "dnd5e"
-  ],
+  "relationships": {
+    "systems": [
+      { "id": "pf2e" },
+      { "id": "dnd5e" }
+    ]
+  },
   "esmodules": [
     "scripts/main.js",
     "scripts/core.js",
     "scripts/ui.js",
     "scripts/adapters/pf2e.js",
     "scripts/adapters/dnd5e.js",
-    "scripts/weakness.js",
-    "scripts/weakness-ui.js",
-    "scripts/weakness-templates-ui.js"
+    "scripts/weakness/index.js"
   ],
   "styles": [
     "styles/ccf.css"

@@ -1,5 +1,5 @@
 import { openCritPrompt, chooseRiderDialog } from "../ui.js";
-import { actorHasWeaknesses, applyActorWeaknessesPF2e } from "../weakness.js";
+import { actorHasWeaknesses, applyActorWeaknessesPF2e } from "../weakness/index.js";
 
 
 // --- Skill → defense map (only special-cased skills listed)
