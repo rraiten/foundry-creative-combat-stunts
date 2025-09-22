@@ -1,70 +1,102 @@
-/**
- * Weakness logic (storage, matching, applying)
- * Flags: actor.flags["creative-combat-stunts"].weaknesses = Array<CCSWeakness>
- */
-export function getActorWeaknesses(actor) {
-  if (!actor) return [];
-  return (actor.getFlag("creative-combat-stunts", "weaknesses") || []) ?? [];
-}
-export function actorHasWeaknesses(actor) {
-  return getActorWeaknesses(actor).some(w => w && w.enabled);
-}
-export function getWeaknessTemplates() {
-  return game.settings.get("creative-combat-stunts", "weaknessTemplates") || [];
-}
-export async function setWeaknessTemplates(list) {
-  await game.settings.set("creative-combat-stunts", "weaknessTemplates", list ?? []);
-}
-export async function importTemplatesToActor(actor, ids) {
-  const tmpl = getWeaknessTemplates();
-  const toAdd = tmpl.filter(t => ids.includes(t.id));
-  const existing = getActorWeaknesses(actor);
-  await actor.setFlag("creative-combat-stunts","weaknesses",
-    [...existing, ...toAdd.map(t => ({...t, enabled: true}))]);
-}
+import { getActorWeaknesses, importTemplatesToActor, getWeaknessTemplates } from "./logic.js";
 
-// Matchers
-export function matchesWeakness(ctx, w) {
-  const kind = String(ctx?.rollKind || "").toLowerCase();  // "skill" | "attack" | "spell"
-  const key  = String(ctx?.rollKey  || "").toLowerCase();
-  const traits = (ctx?.traits || []).map(t => String(t).toLowerCase());
+export class CCSWeaknessManager extends FormApplication {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      id: "ccs-weakness-manager",
+      title: "CCS: Actor Weaknesses",
+      template: "modules/creative-combat-stunts/templates/weakness-manager.hbs",
+      width: 520,
+      height: "auto",
+      closeOnSubmit: true
+    });
+  }
 
-  switch (w?.trigger?.kind) {
-    case "skill":   return kind === "skill"  && (!w.trigger.key || String(w.trigger.key).toLowerCase() === key);
-    case "attack":  if (kind !== "attack") return false;
-                    if (w.trigger.trait) return traits.includes(String(w.trigger.trait).toLowerCase());
-                    return !w.trigger.key || String(w.trigger.key).toLowerCase() === key;
-    case "spell":   if (kind !== "spell")  return false;
-                    return !w.trigger.key || String(w.trigger.key).toLowerCase() === key || key === "spell-attack";
-    case "trait":   return !!w.trigger.trait && traits.includes(String(w.trigger.trait).toLowerCase());
-    case "condition": return traits.includes("cond:" + String(w.trigger.key || "").toLowerCase());
-    default:        return false;
+  get actor() { return this.object; }
+
+  async getData() {
+    return {
+      actor: this.actor,
+      weaknesses: getActorWeaknesses(this.actor),
+      templates: getWeaknessTemplates()
+    };
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+    html.find('[data-action="add-template"]').on("click", () => this._onAddTemplate());
+    html.find('[data-action="add-custom"]').on("click", () => this._onAddCustom());
+    html.find('[data-action="delete"]').on("click", ev => this._onDelete(ev));
+    html.find('[data-field]').on("change", ev => this._onEditField(ev));
+    html.find('[data-action="toggle"]').on("click", ev => this._onToggle(ev));
+  }
+
+  async _onAddTemplate() {
+    const select = this.element.find('select[name="templateId"]')[0];
+    const id = select?.value;
+    if (!id) return;
+    await importTemplatesToActor(this.actor, [id]);
+    this.render(true);
+  }
+
+  async _onAddCustom() {
+    const list = getActorWeaknesses(this.actor);
+    const rid = crypto.randomUUID?.() || foundry.utils.randomID();
+    list.push({
+      id: rid,
+      label: "New Weakness",
+      trigger: { kind: "attack", key: "" },
+      effect: { type: "apply-condition", value: "dazzled", modifierType: "circumstance" },
+      enabled: true
+    });
+    await this.actor.setFlag("creative-combat-stunts", "weaknesses", list);
+    this.render(true);
+  }
+
+  async _onDelete(ev) {
+    const id = ev.currentTarget?.dataset?.id;
+    if (!id) return;
+    const list = getActorWeaknesses(this.actor).filter(w => w.id !== id);
+    await this.actor.setFlag("creative-combat-stunts", "weaknesses", list);
+    this.render(true);
+  }
+
+  async _onToggle(ev) {
+    const id = ev.currentTarget?.dataset?.id;
+    if (!id) return;
+    const list = getActorWeaknesses(this.actor);
+    const w = list.find(x => x.id === id);
+    if (!w) return;
+    w.enabled = !w.enabled;
+    await this.actor.setFlag("creative-combat-stunts", "weaknesses", list);
+    this.render(true);
+  }
+
+  async _onEditField(ev) {
+    const el = ev.currentTarget;
+    const id = el?.dataset?.id;
+    const path = el?.dataset?.field; // e.g., "label", "trigger.kind", "effect.value"
+    const value = el.type === "number" ? Number(el.value) : el.value;
+    if (!id || !path) return;
+    const list = getActorWeaknesses(this.actor);
+    const w = list.find(x => x.id === id);
+    if (!w) return;
+    foundry.utils.setProperty(w, path, value);
+    await this.actor.setFlag("creative-combat-stunts", "weaknesses", list);
   }
 }
 
-// PF2e-side application (degree bump + condition)
-export async function applyActorWeaknessesPF2e(adapter, ctx, target, degree) {
-  const list = getActorWeaknesses(target).filter(w => w?.enabled);
-  if (!list.length) return { degree, texts: [] };
-  const hits = list.filter(w => matchesWeakness(ctx, w));
-  if (!hits.length) return { degree, texts: [] };
+// Idempotent header button (prevents duplicates on re-render)
+Hooks.on("renderActorSheet", (sheet, html) => {
+  if (!game.user?.isGM) return;
+  const app = html.closest(".app");
+  const header = app.find(".window-header .window-title");
+  if (!header.length) return;
 
-  const texts = [];
-  let newDegree = degree;
+  // Remove any existing CCS button in this sheet, then add fresh
+  app.find(".ccs-weaknesses-btn").remove();
 
-  for (const w of hits) {
-    const eff = w.effect || {};
-    if (eff.type === "degree-bump") {
-      const bump = Number(eff.value ?? 1);
-      newDegree = Math.min(3, Math.max(0, (newDegree ?? 1) + bump));
-      texts.push("Degree +" + bump + " (Actor Weakness)");
-    } else if (eff.type === "apply-condition") {
-      const slug = String(eff.value || "").trim();
-      if (slug) {
-        try { await adapter.applyCondition(target, slug); } catch (e) { console.warn("CCS Weakness apply-condition failed", e); }
-        texts.push(slug + " (Actor Weakness)");
-      }
-    }
-  }
-  return { degree: newDegree, texts };
-}
+  const btn = $(`<a class="ccs-weaknesses-btn" title="Creative Combat Stunts – Weaknesses"><i class="fas fa-bolt"></i> CCS</a>`);
+  btn.off("click.ccs").on("click.ccs", () => new CCSWeaknessManager(sheet.actor).render(true));
+  header.after(btn);
+});
