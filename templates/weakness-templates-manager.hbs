@@ -14,32 +14,57 @@
     <tbody>
       {{#each templates as |w|}}
       <tr>
-        <td><input type="text" value="{{w.label}}" data-id="{{w.id}}" data-field="label"/></td>
         <td>
-          <select data-id="{{w.id}}" data-field="trigger.kind">
+          <input type="text"
+                 value="{{w.label}}"
+                 data-id="{{w.id}}"
+                 data-field="label"
+                 title="Display name for this weakness template (GM-facing only)."/>
+        </td>
+        <td>
+          <select data-id="{{w.id}}"
+                  data-field="trigger.kind"
+                  title="Which type of stunt must match to trigger this weakness.">
             {{#select w.trigger.kind}}
-              <option value="attack">attack</option>
-              <option value="skill">skill</option>
-              <option value="spell">spell</option>
-              <option value="trait">trait</option>
-              <option value="condition">condition</option>
+              <option value="attack"    title="Stunts treated as attacks (e.g., strike-like stunts).">attack</option>
+              <option value="skill"     title="Skill-based stunts (e.g., Athletics, Acrobatics).">skill</option>
+              <option value="spell"     title="Spell attack stunts (use key 'spell-attack' to match).">spell</option>
+              <option value="trait"     title="Match by a stunt trait (e.g., 'visual', 'trip').">trait</option>
+              <option value="condition" title="Match by a condition tag already on the stunt (e.g., 'frightened').">condition</option>
             {{/select}}
           </select>
         </td>
         <td>
-          <input type="text" value="{{w.trigger.key}}" placeholder="key" data-id="{{w.id}}" data-field="trigger.key"/>
-          <input type="text" value="{{w.trigger.trait}}" placeholder="trait" data-id="{{w.id}}" data-field="trigger.trait"/>
+          <input type="text"
+                 value="{{w.trigger.key}}"
+                 placeholder="key"
+                 data-id="{{w.id}}"
+                 data-field="trigger.key"
+                 title="Optional. For skill: use the skill slug (e.g., 'athletics'). For spell: 'spell-attack'. For condition: the condition slug. Leave empty if using trait-only."/>
+          <input type="text"
+                 value="{{w.trigger.trait}}"
+                 placeholder="trait"
+                 data-id="{{w.id}}"
+                 data-field="trigger.trait"
+                 title="Optional trait filter for attack/trait kinds (e.g., 'visual', 'trip'). Leave empty if not needed."/>
         </td>
         <td>
-          <select data-id="{{w.id}}" data-field="effect.type">
+          <select data-id="{{w.id}}"
+                  data-field="effect.type"
+                  title="What happens when the weakness triggers.">
             {{#select w.effect.type}}
-              <option value="apply-condition">apply-condition</option>
-              <option value="degree-bump">degree-bump</option>
+              <option value="apply-condition" title="Applies a PF2e condition to the target (value = condition slug, e.g., 'dazzled').">apply-condition</option>
+              <option value="degree-bump"     title="Shifts degree of success by +N (value = number). Capped at crit.">degree-bump</option>
             {{/select}}
           </select>
-          <input type="text" value="{{w.effect.value}}" placeholder="value" data-id="{{w.id}}" data-field="effect.value"/>
+          <input type="text"
+                 value="{{w.effect.value}}"
+                 placeholder="value"
+                 data-id="{{w.id}}"
+                 data-field="effect.value"
+                 title="For apply-condition: condition slug (e.g., 'dazzled'). For degree-bump: a number (e.g., 1)."/>
         </td>
-        <td><button type="button" data-action="delete" data-id="{{w.id}}">🗑</button></td>
+        <td><button type="button" data-action="delete" data-id="{{w.id}}" title="Delete this template">🗑</button></td>
       </tr>
       {{/each}}
     </tbody>
