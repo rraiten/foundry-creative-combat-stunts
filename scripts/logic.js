@@ -262,7 +262,6 @@ export function buildChatCardData({ degree, ctx, applied, poolSpent, advUsed, is
     dc: isAttack ? (ctx?._dcStrike ?? ctx?.dc) : ctx?.dc,
     dcStrike: ctx?._dcStrike ?? null,
     dcDelta: (ctx?._dcStrike != null && ctx?.dc != null) ? (ctx._dcStrike - ctx.dc) : null,
-    modDelta: (ctx?._dcStrike != null && ctx?.dc != null) ? (ctx._dcStrike - ctx.dc) : null,
     degree: degreeTxt,
     coolBonus: ctx?.coolBonus ?? 0,
     coolNote: (ctx?.coolBonus ? `(+${ctx.coolBonus} Flavor)` : (ctx?.rollTwice === "keep-higher" ? "(Advantage used)" : "")),

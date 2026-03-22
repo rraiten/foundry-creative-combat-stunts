@@ -35,8 +35,8 @@ export async function openPoolConfig() {
       reset: {
         label: game.i18n.localize("CCS.UI.ResetRemaining"),
         callback: async () => {
-          const size = pool.size ?? 4;
-          await combat.setFlag(MODULE_ID, FLAGS.POOL, { ...pool, remaining: size });
+          const size = Math.max(1, Number(pool.size) || 4);
+          await combat.setFlag(MODULE_ID, FLAGS.POOL, { ...(pool || {}), remaining: size });
           ui.notifications?.info(game.i18n.localize("CCS.Notify.PoolReset"));
         },
       },

@@ -68,8 +68,12 @@ export async function applyActorWeaknessesPF2e(adapter, ctx, target, degree) {
     } else if (eff.type === "apply-condition") {
       const slug = String(eff.value || "").trim();
       if (slug) {
-        try { await adapter.applyCondition(target, slug); } catch (e) { console.warn("CCS Weakness apply-condition failed", e); }
-        texts.push(slug + " (Actor Weakness)");
+        try {
+          await adapter.applyCondition(target, slug);
+          texts.push(slug + " (Actor Weakness)");
+        } catch (e) {
+          console.warn("CCS Weakness apply-condition failed", e);
+        }
       }
     }
   }

@@ -43,12 +43,17 @@ export async function spendCinematicToken(combat, actorId) {
     const check = validatePoolSpend(pool, usage, actorId);
     if (!check.ok) return check;
 
-    // Write both flags — if either fails (permissions), report it
+    // Write both flags — if pool write fails, don't write usage (keep state consistent)
     const poolOk = await safeCombatSetFlag(combat, FLAGS.POOL, { ...pool, remaining: pool.remaining - 1 });
     if (!poolOk) return { ok: false, reason: "Permission denied — ask GM to enable pool spending" };
 
     usage[actorId] = true;
-    await safeCombatSetFlag(combat, FLAGS.POOL_USAGE, usage);
+    const usageOk = await safeCombatSetFlag(combat, FLAGS.POOL_USAGE, usage);
+    if (!usageOk) {
+      // Roll back pool decrement since we couldn't mark actor as used
+      await safeCombatSetFlag(combat, FLAGS.POOL, pool);
+      return { ok: false, reason: "Permission denied — ask GM to enable pool spending" };
+    }
     return { ok: true };
   } catch (e) {
     console.warn("CCS: spendCinematicToken failed", e);

@@ -79,6 +79,7 @@ export class CCSWeaknessManager extends FormApplication {
     const path = el?.dataset?.field; // e.g., "label", "trigger.kind", "effect.value"
     const value = el.type === "number" ? Number(el.value) : el.value;
     if (!id || !path) return;
+    if (path.includes("__proto__") || path.includes("constructor") || path.includes("prototype")) return;
     const list = getActorWeaknesses(this.actor);
     const w = list.find(x => x.id === id);
     if (!w) return;

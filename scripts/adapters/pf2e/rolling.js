@@ -139,6 +139,7 @@ export async function rollAsStrike(ctx) {
   } catch (_) {}
 
   const r = await attackFn(rollOpts);
+  if (!r) return null; // roll was cancelled or failed
 
   try {
     const v = extractKeptD20(r);

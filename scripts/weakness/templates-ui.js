@@ -49,7 +49,8 @@ export class CCSWeaknessTemplatesManager extends FormApplication {
     const path = el?.dataset?.field;
     const value = el.type === "number" ? Number(el.value) : el.value; 
     if (!id || !path) return;
-    
+    if (path.includes("__proto__") || path.includes("constructor") || path.includes("prototype")) return;
+
     const list = getWeaknessTemplates(); 
     const w = list.find(x => x.id === id); 
     if (!w) return;
