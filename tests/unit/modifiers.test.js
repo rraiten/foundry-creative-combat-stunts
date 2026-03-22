@@ -104,4 +104,21 @@ describe("buildStuntModifiers", () => {
     const mods = buildStuntModifiers({ skillMod: 8, currentAttack: 8, rollKind: "skill" });
     expect(mods).toEqual([]);
   });
+
+  it("handles undefined currentAttack (treated as 0)", () => {
+    const mods = buildStuntModifiers({ skillMod: 10, currentAttack: undefined, rollKind: "skill", rollKey: "ath" });
+    const remap = mods.find(m => m.label.includes("skill→strike"));
+    expect(remap.modifier).toBe(10);
+  });
+
+  it("handles undefined skillMod (treated as 0)", () => {
+    const mods = buildStuntModifiers({ skillMod: undefined, currentAttack: 8, rollKind: "skill", rollKey: "ath" });
+    const remap = mods.find(m => m.label.includes("skill→strike"));
+    expect(remap.modifier).toBe(-8);
+  });
+
+  it("handles null mappedDC (no defense map)", () => {
+    const mods = buildStuntModifiers({ rollKind: "skill", targetAC: 25, mappedDC: null });
+    expect(mods.find(m => m.label.includes("defense map"))).toBeUndefined();
+  });
 });

@@ -58,18 +58,3 @@ export async function chooseRiderDialog(kind = "success") {
   }
 }
 
-export async function openCritPrompt({ isFailure = false } = {}) {
-  if (foundry?.applications?.api?.DialogV2) {
-    return new Promise(resolve => {
-      openSimpleDialogV2({
-        title: isFailure ? "Critical Failure" : "Critical Success",
-        content: `<p>Pick how to resolve the critical.</p>`,
-        buttons: [
-          { action: "rider", label: "Pick Effect",  callback: () => resolve("rider") },
-          { action: "cancel", label: "Cancel",       callback: () => resolve(null)    },
-        ],
-        defaultId: "deck",
-      });
-    });
-  }
-}

@@ -103,6 +103,47 @@ describe("extractKeptD20", () => {
     expect(extractKeptD20(result)).toBe(7);
   });
 
+  it("handles misfortune (keep-lowest) — returns non-discarded", () => {
+    const result = {
+      roll: {
+        dice: [{
+          faces: 20,
+          results: [
+            { result: 18, discarded: true, active: false },
+            { result: 4, discarded: false, active: true },
+          ],
+        }],
+        terms: [],
+      },
+    };
+    expect(extractKeptD20(result)).toBe(4);
+  });
+
+  it("handles nested PoolTerm with multiple sub-rolls", () => {
+    const result = {
+      roll: {
+        dice: [],
+        terms: [{
+          rolls: [
+            { dice: [], terms: [] },
+            { dice: [{ faces: 20, results: [{ result: 13 }] }], terms: [] },
+          ],
+        }],
+      },
+    };
+    expect(extractKeptD20(result)).toBe(13);
+  });
+
+  it("handles roll with only non-d20 dice", () => {
+    const result = {
+      roll: {
+        dice: [{ faces: 6, results: [{ result: 4 }] }],
+        terms: [],
+      },
+    };
+    expect(extractKeptD20(result)).toBeNull();
+  });
+
   it("prefers kept non-rerolled over kept rerolled", () => {
     const result = {
       roll: {

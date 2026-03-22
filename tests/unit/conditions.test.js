@@ -41,4 +41,12 @@ describe("parseEntry", () => {
   it("returns null value when no colon value", () => {
     expect(parseEntry("off-guard")).toEqual({ slug: "off-guard", value: null });
   });
+
+  it("handles multiple colons (takes first value)", () => {
+    expect(parseEntry("slug:2:extra")).toEqual({ slug: "slug", value: 2 });
+  });
+
+  it("handles whitespace-only string", () => {
+    expect(parseEntry("   ")).toBeNull();
+  });
 });
