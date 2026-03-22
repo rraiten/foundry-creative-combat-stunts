@@ -8,7 +8,7 @@ VERSION_ARG="${1:-${VERSION:-}}"
 # --- helpers ---------------------------------------------------------------
 
 get_json_field() { # $1=key
-  grep -Po "\"$1\"\\s*:\\s*\"\\K[^\"]+" "$MODULE_JSON" || true
+  sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$MODULE_JSON" | head -1
 }
 
 bump_patch() { # x.y.z -> x.y.(z+1)
@@ -135,14 +135,14 @@ if [[ -n "${GITHUB_TOKEN:-}" && -n "$OWNER_REPO" && ( "${DRAFT:-0}" = "1" || "${
     -H "Accept: application/vnd.github+json" \
     -d "$CREATE_PAYLOAD")"
 
-  REL_ID="$(echo "$CREATE_RESP" | grep -Po '"id"\s*:\s*\K[0-9]+' | head -n1 || true)"
+  REL_ID="$(echo "$CREATE_RESP" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*\([0-9]*\).*/\1/p' | head -n1 || true)"
 
   # 2) If release exists already, fetch by tag and PATCH it
   if [[ -z "$REL_ID" ]]; then
     FETCH_RESP="$(curl -sS -X GET "${API}/repos/${OWNER_REPO}/releases/tags/v${NEW_VER}" \
       -H "Authorization: Bearer ${GITHUB_TOKEN}" \
       -H "Accept: application/vnd.github+json")"
-    REL_ID="$(echo "$FETCH_RESP" | grep -Po '"id"\s*:\s*\K[0-9]+' | head -n1 || true)"
+    REL_ID="$(echo "$FETCH_RESP" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*\([0-9]*\).*/\1/p' | head -n1 || true)"
 
     if [[ -n "$REL_ID" ]]; then
       PATCH_PAYLOAD=$(printf '{"name":"%s","draft":%s}' "$TITLE" "$DRAFT_FLAG")
@@ -161,7 +161,7 @@ if [[ -n "${GITHUB_TOKEN:-}" && -n "$OWNER_REPO" && ( "${DRAFT:-0}" = "1" || "${
   ASSETS_JSON="$(curl -sS -X GET "${API}/repos/${OWNER_REPO}/releases/${REL_ID}/assets" \
     -H "Authorization: Bearer ${GITHUB_TOKEN}" \
     -H "Accept: application/vnd.github+json")"
-  EXISTING_ASSET_ID="$(echo "$ASSETS_JSON" | grep -Po "\"name\":\"${ZIP_NAME}\"[^\}]*\"id\":\s*\K[0-9]+" | head -n1 || true)"
+  EXISTING_ASSET_ID="$(echo "$ASSETS_JSON" | sed -n "s/.*\"name\":\"${ZIP_NAME}\"[^}]*\"id\":[[:space:]]*\([0-9]*\).*/\1/p" | head -n1 || true)"
 
   if [[ -n "$EXISTING_ASSET_ID" ]]; then
     curl -sS -X DELETE "${API}/repos/${OWNER_REPO}/releases/assets/${EXISTING_ASSET_ID}" \
