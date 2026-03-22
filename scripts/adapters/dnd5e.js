@@ -20,15 +20,22 @@ export class DnD5eAdapter {
       rollKey,
       dc,
       rollMode: "normal",
+      rollTwice: null,
       coolBonus: 0,
-      ...options,
+      challengeAdj: Number(options?.challengeAdj) || 0,
     };
   }
 
   async applyPreRollAdjustments(ctx, { coolTier, chooseAdvNow }) {
     const tier = Number(coolTier ?? 0);
     ctx.coolBonus = tier === 2 ? 2 : tier === 1 ? 1 : 0;
-    ctx.rollMode = chooseAdvNow ? "advantage" : "normal";
+    if (chooseAdvNow) {
+      ctx.rollMode = "advantage";
+      ctx.rollTwice = "keep-higher";
+      ctx.coolBonus = 0;
+    } else {
+      ctx.rollMode = "normal";
+    }
     return ctx;
   }
 
@@ -36,10 +43,8 @@ export class DnD5eAdapter {
     const actor = ctx?.actor;
     if (!actor) { ui.notifications?.error(game.i18n.localize("CCS.Notify.5eNoActor")); return null; }
 
-    // Map perception request to the proper 5e skill key
     const skill = (ctx.rollKind === "perception" ? "prc" : (ctx.rollKey ?? "acr")).toLowerCase();
 
-    // Preferred: actor.rollSkill
     let roll;
     try {
       if (typeof actor.rollSkill === "function") {
@@ -66,12 +71,17 @@ export class DnD5eAdapter {
     const baseTotal = Number(roll?.total ?? 0);
     const total = baseTotal + Number(ctx.coolBonus ?? 0);
     const formula = (roll?.formula ?? "d20") + (ctx.coolBonus ? ` + ${ctx.coolBonus} (Cool)` : "");
+
+    // Set skill mod for display math (parallel to PF2e adapter)
+    const skillObj = actor?.system?.skills?.[skill];
+    ctx._skillMod = Number(skillObj?.total ?? skillObj?.mod ?? 0);
+    ctx._attackMod = 0;
+
     return { total, formula, roll };
   }
 
   async degreeOfSuccess(result, ctx) {
     if (!result) return null;
-    // Simple mapping for MVP
     const d20 = result?.roll?.dice?.find?.(d => d.faces === 20);
     const nat = Number(d20?.results?.[0]?.result ?? NaN);
     const dc = Number(ctx?.dc ?? 12);

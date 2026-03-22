@@ -39,7 +39,7 @@ export class PF2eAdapter {
       rollTwice: null,
       coolBonus: 0,
       trigger: null,
-      ...options
+      challengeAdj: Number(options?.challengeAdj) || 0,
     };
   }
 
