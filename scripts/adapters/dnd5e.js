@@ -69,8 +69,11 @@ export class DnD5eAdapter {
     }
 
     const baseTotal = Number(roll?.total ?? 0);
-    const total = baseTotal + Number(ctx.coolBonus ?? 0);
-    const formula = (roll?.formula ?? "d20") + (ctx.coolBonus ? ` + ${ctx.coolBonus} (Cool)` : "");
+    const riskPenalty = ctx.tacticalRisk ? -2 : 0;
+    const total = baseTotal + Number(ctx.coolBonus ?? 0) + riskPenalty;
+    let formula = roll?.formula ?? "d20";
+    if (ctx.coolBonus) formula += ` + ${ctx.coolBonus} (Cool)`;
+    if (riskPenalty) formula += ` - 2 (Risk)`;
 
     // Set skill mod for display math (parallel to PF2e adapter)
     const skillObj = actor?.system?.skills?.[skill];

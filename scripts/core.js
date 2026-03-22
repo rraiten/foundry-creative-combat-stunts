@@ -35,7 +35,11 @@ export class CCF {
       ui.notifications?.error(game.i18n.localize("CCS.Notify.UnsupportedSystem"));
       return;
     }
-    let { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId } = options;
+    if (!actor) {
+      ui.notifications?.warn(game.i18n.localize("CCS.Notify.NoActor"));
+      return;
+    }
+    let { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId } = options ?? {};
     const combat = game.combat;
 
     const tierNum = parseCoolTier(coolTier);
@@ -144,6 +148,6 @@ export class CCF {
         total: data.displayTotal, formula: data.displayFormula,
         rollTooltip: (await result?.roll?.getTooltip?.()) ?? null }
     );
-    ChatMessage.create({speaker: ChatMessage.getSpeaker({actor}), content});
+    await ChatMessage.create({speaker: ChatMessage.getSpeaker({actor}), content});
   }
 }

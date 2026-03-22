@@ -37,8 +37,12 @@ export function matchesWeakness(ctx, w) {
     case "attack":  if (kind !== "attack") return false;
                     if (w.trigger.trait) return traits.includes(String(w.trigger.trait).toLowerCase());
                     return !w.trigger.key || String(w.trigger.key).toLowerCase() === key;
-    case "spell":   if (kind !== "spell")  return false;
-                    return !w.trigger.key || String(w.trigger.key).toLowerCase() === key || key === "spell-attack";
+    case "spell":   {
+                      const isSpellRoll = kind === "spell" || (kind === "attack" && key === "__spell_attack__");
+                      if (!isSpellRoll) return false;
+                      return !w.trigger.key || String(w.trigger.key).toLowerCase() === key
+                        || key === "spell-attack" || key === "__spell_attack__";
+                    }
     case "trait":   return !!w.trigger.trait && traits.includes(String(w.trigger.trait).toLowerCase());
     case "condition": return traits.includes("cond:" + String(w.trigger.key || "").toLowerCase());
     default:        return false;
