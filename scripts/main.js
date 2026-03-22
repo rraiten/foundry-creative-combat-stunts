@@ -15,7 +15,7 @@ Hooks.once("ready", () => {
   const sys = game.system?.id;
   if (sys === "pf2e") game.ccf.setAdapter(new PF2eAdapter());
   else if (sys === "dnd5e") game.ccf.setAdapter(new DnD5eAdapter());
-  else ui.notifications?.warn("Creative Combat Stunts: Unsupported system - core will load but effects may be limited.");
+  else ui.notifications?.warn(game.i18n.localize("CCS.Notify.UnsupportedSystem"));
 });
 
 Hooks.on("createCombat", async (combat) => {

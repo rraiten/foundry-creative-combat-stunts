@@ -76,7 +76,7 @@ function getStrikeAttackMod(strike) {
 export async function rollAsStrike(ctx) {
   const { actor, target } = ctx;
   if (!actor || !target) {
-    ui.notifications?.warn("PF2e: No actor or target for Stunt Strike.");
+    ui.notifications?.warn(game.i18n.localize("CCS.Notify.PF2eNoActorTarget"));
     return null;
   }
 
@@ -90,7 +90,7 @@ export async function rollAsStrike(ctx) {
 
   const attackFn = strike?.attack ?? strike?.variants?.[0]?.roll;
   if (typeof attackFn !== "function") {
-    ui.notifications?.warn("PF2e: Could not access a Strike roll function.");
+    ui.notifications?.warn(game.i18n.localize("CCS.Notify.PF2eNoStrikeRoll"));
     return null;
   }
 
@@ -104,7 +104,7 @@ export async function rollAsStrike(ctx) {
 
   if (isAttack) {
     ctx.rollLabel = strike?.label ?? strike?.item?.name ?? ctx.rollLabel ?? "Strike";
-    if (isSpellAttack) ctx.rollLabel = "Spell Attack";
+    if (isSpellAttack) ctx.rollLabel = game.i18n.localize("CCS.UI.SpellAttack");
   }
 
   // 3) Build modifier descriptors (pure logic) then instantiate Mod objects

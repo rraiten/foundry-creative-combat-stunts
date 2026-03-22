@@ -43,7 +43,7 @@ function buildStrikeChoices(actor) {
   if (isPF2()) {
     const spellAtk = _getSpellAttackModPF2(actor);
     if (Number.isFinite(spellAtk)) {
-      strikes.unshift({ value: "__spell_attack__", label: "Spell Attack" });
+      strikes.unshift({ value: "__spell_attack__", label: game.i18n.localize("CCS.UI.SpellAttack") });
     }
   }
 
@@ -92,7 +92,7 @@ function wireDialogVisibility(dlg) {
 export async function openStuntDialog({ token, actor } = {}) {
   token ??= canvas?.tokens?.controlled?.[0] ?? null;
   actor ??= token?.actor ?? (game.user?.character ? game.actors.get(game.user.character) : null);
-  if (!actor) return ui.notifications?.warn("Select a token or set a player character, then try again.");
+  if (!actor) return ui.notifications?.warn(game.i18n.localize("CCS.Notify.NoActor"));
 
   const sys = game?.system?.id ?? game.systemId ?? "";
   const target = Array.from(game.user?.targets ?? [])[0]?.actor ?? null;
@@ -120,8 +120,8 @@ export async function openStuntDialog({ token, actor } = {}) {
       flavorOptions: getFlavorOptions(),
       skills, strikes,
       rollSources: [
-        { value: "skill", label: "Skill" },
-        { value: "attack", label: "Attack (Strike)" },
+        { value: "skill", label: game.i18n.localize("CCS.UI.Skill") },
+        { value: "attack", label: game.i18n.localize("CCS.UI.AttackStrike") },
       ],
       hideRollSource: false,
       effectiveRollKind: null,
@@ -133,11 +133,11 @@ export async function openStuntDialog({ token, actor } = {}) {
 
   let dlg;
   dlg = openSimpleDialogV2({
-    title: "Creative Stunt",
+    title: game.i18n.localize("CCS.UI.CreativeStunt"),
     content,
     buttons: [
       {
-        action: "roll", label: "Roll", default: true,
+        action: "roll", label: game.i18n.localize("CCS.UI.Roll"), default: true,
         callback: () => {
           const root = dlg.element;
           const q = (sel) => root.querySelector(sel);
@@ -158,7 +158,7 @@ export async function openStuntDialog({ token, actor } = {}) {
           return "roll";
         }
       },
-      { action: "cancel", label: "Cancel" },
+      { action: "cancel", label: game.i18n.localize("CCS.UI.Cancel") },
     ],
     submit: (_result) => {},
   });

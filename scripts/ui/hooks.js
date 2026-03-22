@@ -9,7 +9,7 @@ export function registerUI() {
     $el.find(".ccs-pool-button").remove();
     const $btn = $(
       `<button type="button" class="ccs-pool-button">
-         <i class="fas fa-bolt"></i> Cinematic Pool
+         <i class="fas fa-bolt"></i> ${game.i18n.localize("CCS.UI.CinematicPool")}
        </button>`
     ).on("click", () => openPoolConfig());
     const mount = $el.find(".directory-footer, .sidebar-tab .footer").first();
@@ -53,7 +53,7 @@ export function registerUI() {
     const token = app?.object;
     if (!token?.document) return;
     html.find(".control-icon.ccs").remove();
-    const btn = $(`<div class="control-icon ccs" title="Creative Combat Stunts"><i class="fas fa-bolt"></i></div>`)
+    const btn = $(`<div class="control-icon ccs" title="${game.i18n.localize("CCS.UI.TokenHUDTooltip")}"><i class="fas fa-bolt"></i></div>`)
       .on("click", () => openStuntDialog({ token }));
     const col = html.find(".col.right, .col").last();
     (col.length ? col : html).append(btn);

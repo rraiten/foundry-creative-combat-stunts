@@ -31,9 +31,9 @@ export function registerAllSettings() {
     scope: "world", config: false, type: Array, default: DEFAULT_TEMPLATES
   });
   game.settings.registerMenu(MODULE_ID, "weaknessTemplatesMenu", {
-    name: "Weakness Templates (CCS)",
-    label: "Manage Templates",
-    hint: "Reusable weaknesses you can import into actors.",
+    name: "CCS.Setting.WeaknessTemplatesMenu.Name",
+    label: "CCS.Setting.WeaknessTemplatesMenu.Label",
+    hint: "CCS.Setting.WeaknessTemplatesMenu.Hint",
     type: CCSWeaknessTemplatesManager,
     restricted: true
   });
@@ -41,27 +41,27 @@ export function registerAllSettings() {
   // PF2e-specific (harmless on 5e, UI hides them)
   game.settings.register(MODULE_ID, "pf2eAdvantageOnce", {
     scope: "world", config: true, type: Boolean, default: true,
-    name: "PF2e: Allow once-per-combat Advantage instead of +2",
-    hint: "PF2e only. Players may declare roll-twice-keep-higher once per combat instead of a +2 Cool bonus."
+    name: "CCS.Setting.Pf2eAdvantageOnce.Name",
+    hint: "CCS.Setting.Pf2eAdvantageOnce.Hint"
   });
   game.settings.register(MODULE_ID, "successRiders", {
     scope: "world", config: true, type: String, default: "off-guard, frightened:1, prone, clumsy:1",
-    name: "Default Success Rider Menu (PF2e)",
-    hint: "PF2e only. Comma-separated PF2e conditions with optional :value."
+    name: "CCS.Setting.SuccessRiders.Name",
+    hint: "CCS.Setting.SuccessRiders.Hint"
   });
   game.settings.register(MODULE_ID, "failureSetbacks", {
     scope: "world", config: true, type: String, default: "prone, drop-item, off-guard, stunned:1",
-    name: "Default Failure Setback Menu (PF2e)",
-    hint: "PF2e only. Comma-separated entries; for conditions use PF2e slugs."
+    name: "CCS.Setting.FailureSetbacks.Name",
+    hint: "CCS.Setting.FailureSetbacks.Hint"
   });
   game.settings.register(MODULE_ID, "critPrompt", {
     scope: "world", config: true, type: Boolean, default: true,
-    name: "PF2e: Prompt after Crit",
-    hint: "PF2e only: after a Tactical Risk crit, prompt for Crit Deck vs rider."
+    name: "CCS.Setting.CritPrompt.Name",
+    hint: "CCS.Setting.CritPrompt.Hint"
   });
   game.settings.register(MODULE_ID, "skipPlayerDialog", {
-    name: "Stunt: Skip PF2e pre-roll dialog for players",
-    hint: "When enabled, players will NOT see the PF2e pre-roll dialog for stunt rolls. GMs always see it.",
+    name: "CCS.Setting.SkipPlayerDialog.Name",
+    hint: "CCS.Setting.SkipPlayerDialog.Hint",
     scope: "world", config: true, type: Boolean, default: false,
   });
 }

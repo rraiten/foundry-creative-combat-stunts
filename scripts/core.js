@@ -19,7 +19,7 @@ export async function applyEffectItem(target, name, rounds, rules = []) {
     return created[0];
   } catch (e) {
     console.warn("CCS: Failed creating effect item", e);
-    ui.notifications?.warn("CCS: Could not create temporary effect item.");
+    ui.notifications?.warn(game.i18n.localize("CCS.Notify.EffectItemFail"));
     return null;
   }
 }
@@ -37,7 +37,7 @@ export class CCF {
     const tierNum = parseCoolTier(coolTier);
 
     if (!plausible && tierNum === 0) {
-      ui.notifications?.warn("Stunt isn't plausible or flavorful; resolving as a normal roll.");
+      ui.notifications?.warn(game.i18n.localize("CCS.Notify.NotPlausible"));
     }
 
     // Once-per-combat Advantage gate
@@ -45,7 +45,7 @@ export class CCF {
     if (chooseAdvNow) {
       const ok = await canUseOncePerCombat(combat, actor.id, FLAGS.ADV_USAGE);
       if (!ok) {
-        ui.notifications?.warn("You have already used Advantage this combat.");
+        ui.notifications?.warn(game.i18n.localize("CCS.Notify.AdvantageUsed"));
         chooseAdvNow = false;
       } else {
         await markUsedOncePerCombat(combat, actor.id, FLAGS.ADV_USAGE);
@@ -58,7 +58,7 @@ export class CCF {
     if (spendPoolNow) {
       const spend = await spendCinematicToken(combat, actor.id);
       if (!spend.ok) {
-        ui.notifications?.warn(spend.reason || "Unable to spend Cinematic Pool token.");
+        ui.notifications?.warn(spend.reason || game.i18n.localize("CCS.Notify.PoolSpendFail"));
         spendPoolNow = false;
       } else {
         poolSpent = true;

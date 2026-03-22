@@ -5,7 +5,7 @@ export class CCSWeaknessManager extends FormApplication {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: "ccs-weakness-manager",
-      title: "CCS: Actor Weaknesses",
+      title: game.i18n.localize("CCS.UI.ActorWeaknessesTitle"),
       template: `modules/${MODULE_ID}/templates/weakness-manager.hbs`,
       width: 520,
       height: "auto",
@@ -97,7 +97,7 @@ Hooks.on("renderActorSheet", (sheet, html) => {
   // Remove any existing CCS button in this sheet, then add fresh
   app.find(".ccs-weaknesses-btn").remove();
 
-  const btn = $(`<a class="ccs-weaknesses-btn" title="Creative Combat Stunts – Weaknesses"><i class="fas fa-bolt"></i> CCS</a>`);
+  const btn = $(`<a class="ccs-weaknesses-btn" title="${game.i18n.localize("CCS.UI.ActorSheetTooltip")}"><i class="fas fa-bolt"></i> ${game.i18n.localize("CCS.UI.ActorSheetButton")}</a>`);
   btn.off("click.ccs").on("click.ccs", () => new CCSWeaknessManager(sheet.actor).render(true));
   header.after(btn);
 });

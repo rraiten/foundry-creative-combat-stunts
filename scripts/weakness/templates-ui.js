@@ -5,7 +5,7 @@ export class CCSWeaknessTemplatesManager extends FormApplication {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: "ccs-weakness-templates-manager",
-      title: "CCS: Weakness Templates",
+      title: game.i18n.localize("CCS.UI.WeaknessTemplatesTitle"),
       template: `modules/${MODULE_ID}/templates/weakness-templates-manager.hbs`,
       width: 600, 
       height: "auto", 

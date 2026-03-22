@@ -32,24 +32,24 @@ export async function chooseRiderDialog(kind = "success") {
   if (foundry?.applications?.api?.DialogV2) {
     return new Promise(resolve => {
       const content = `
-        <p>Select a rider or cancel to use the default.</p>
+        <p>${game.i18n.localize("CCS.UI.RiderPrompt")}</p>
         <input type="text" name="rider" placeholder="e.g., prone, frightened:1, drop-item" style="width:100%"/>
       `;
       let dlg = null;
       const buttons = [
         {
           action: "ok",
-          label: "Apply",
+          label: game.i18n.localize("CCS.UI.Apply"),
           default: true,
           callback: () => {
             const val = dlg?.element?.querySelector?.('[name="rider"]')?.value?.trim() || null;
             resolve(val);
           }
         },
-        { action: "cancel", label: "Cancel", callback: () => resolve(null) }
+        { action: "cancel", label: game.i18n.localize("CCS.UI.Cancel"), callback: () => resolve(null) }
       ];
       dlg = openSimpleDialogV2({
-        title: `Choose Rider (${kind})`,
+        title: game.i18n.format("CCS.UI.ChooseRider", { kind }),
         content,
         buttons,
         defaultId: "ok",

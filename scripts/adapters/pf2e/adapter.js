@@ -135,7 +135,7 @@ export class PF2eAdapter {
         ctx.rollTwice = "keep-higher";
         ctx.coolBonus = 0;
       } else {
-        ui.notifications.warn("Advantage is only available during an active combat.");
+        ui.notifications.warn(game.i18n.localize("CCS.Notify.AdvantageNoCombat"));
       }
     }
     return ctx;

@@ -7,7 +7,7 @@ export async function applyConfiguredEffect(actor, entry, isSuccess) {
   const parsed = parseEntry(entry);
   if (!parsed) return;
   if (parsed.text === "drop-item") {
-    ui.notifications?.info(`${actor.name} drops a held item.`);
+    ui.notifications?.info(game.i18n.format("CCS.Notify.DropItem", { name: actor.name }));
     return;
   }
   await applyCondition(actor, parsed.slug, parsed.value);
@@ -76,6 +76,6 @@ export async function applyCondition(actor, slug, value = null) {
     ]);
   } catch (e) {
     console.warn("CCS: Failed to apply condition", slug, e);
-    ui.notifications?.warn(`CCS: Could not apply condition ${slug}.`);
+    ui.notifications?.warn(game.i18n.format("CCS.Notify.ConditionFail", { slug }));
   }
 }

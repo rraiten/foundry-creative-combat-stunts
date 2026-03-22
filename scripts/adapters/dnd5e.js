@@ -34,7 +34,7 @@ export class DnD5eAdapter {
 
   async roll(ctx = {}) {
     const actor = ctx?.actor;
-    if (!actor) { ui.notifications?.error("5e: No actor on context."); return null; }
+    if (!actor) { ui.notifications?.error(game.i18n.localize("CCS.Notify.5eNoActor")); return null; }
 
     // Map perception request to the proper 5e skill key
     const skill = (ctx.rollKind === "perception" ? "prc" : (ctx.rollKey ?? "acr")).toLowerCase();
@@ -55,7 +55,7 @@ export class DnD5eAdapter {
           chatMessage: false,
         });
       } else {
-        ui.notifications?.error(`5e: Cannot roll skill '${skill}'.`);
+        ui.notifications?.error(game.i18n.format("CCS.Notify.5eSkillFail", { skill }));
         return null;
       }
     } catch (e) {
@@ -87,10 +87,10 @@ export class DnD5eAdapter {
   async applyOutcome({ actor, target, ctx, degree, tacticalRisk }) {
     if (!tacticalRisk) return null;
     if (degree >= 2) {
-      ui.notifications?.info(`${target?.name ?? "Target"} is thrown off-balance (CCS).`);
+      ui.notifications?.info(game.i18n.format("CCS.Notify.OffBalance", { target: target?.name ?? "Target" }));
       return { targetEffect: "Off-balance (CCS)" };
     } else {
-      ui.notifications?.warn(`${actor?.name ?? "Actor"} stumbles and falls prone (CCS).`);
+      ui.notifications?.warn(game.i18n.format("CCS.Notify.FallProne", { actor: actor?.name ?? "Actor" }));
       return { selfEffect: "Prone (CCS)" };
     }
   }
