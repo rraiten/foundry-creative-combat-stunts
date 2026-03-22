@@ -110,13 +110,9 @@ export async function rollAsStrike(ctx) {
   const Mod = game.pf2e?.Modifier ?? game.pf2e?.modifiers?.Modifier;
   const mods = Mod ? modDescriptors.map(d => new Mod(d)) : [];
 
-  // Set DC context for degree-of-success
-  if (isAttack) {
-    ctx._dcStrike = targetAC;
-  } else {
-    ctx._dcStrike = targetAC;
-    ctx._dcAdj = mappedDC != null ? (targetAC - mappedDC) : 0;
-  }
+  // Set DC for degree-of-success (both attack and skill stunts use AC
+  // because the defense map shim adjusts the roll to compensate)
+  ctx._dcStrike = targetAC;
 
   // 4) Execute the roll
   let rollOpts = { createMessage: true, skipDialog: true };

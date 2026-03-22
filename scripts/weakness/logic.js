@@ -3,7 +3,7 @@
  * Flags: actor.flags["creative-combat-stunts"].weaknesses = Array<CCSWeakness>
  */
 import { MODULE_ID, FLAGS } from "../constants.js";
-import { clampDegree } from "../logic.js";
+import { computeWeaknessEffects } from "../logic.js";
 
 export function getActorWeaknesses(actor) {
   if (!actor) return [];
@@ -56,26 +56,19 @@ export async function applyActorWeaknessesPF2e(adapter, ctx, target, degree) {
   const hits = list.filter(w => matchesWeakness(ctx, w));
   if (!hits.length) return { degree, texts: [] };
 
-  const texts = [];
-  let newDegree = degree;
+  // Pure computation: degree bumps + condition list
+  const { degree: newDegree, degreeBumpTexts, conditionsToApply } = computeWeaknessEffects(hits, degree);
 
-  for (const w of hits) {
-    const eff = w.effect || {};
-    if (eff.type === "degree-bump") {
-      const bump = Number(eff.value ?? 1);
-      newDegree = clampDegree(newDegree ?? 1, bump);
-      texts.push("Degree +" + bump + " (Actor Weakness)");
-    } else if (eff.type === "apply-condition") {
-      const slug = String(eff.value || "").trim();
-      if (slug) {
-        try {
-          await adapter.applyCondition(target, slug);
-          texts.push(slug + " (Actor Weakness)");
-        } catch (e) {
-          console.warn("CCS Weakness apply-condition failed", e);
-        }
-      }
+  // Async: apply conditions via adapter
+  const conditionTexts = [];
+  for (const c of conditionsToApply) {
+    try {
+      await adapter.applyCondition(target, c.slug);
+      conditionTexts.push(c.text);
+    } catch (e) {
+      console.warn("CCS Weakness apply-condition failed", e);
     }
   }
-  return { degree: newDegree, texts };
+
+  return { degree: newDegree, texts: [...degreeBumpTexts, ...conditionTexts] };
 }
