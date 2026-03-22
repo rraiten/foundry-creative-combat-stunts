@@ -1,4 +1,6 @@
 // systems/dnd5e/dnd5e.js
+import { compute5eDegree, clampDegree } from "../logic.js";
+
 export class DnD5eAdapter {
   async buildContext({ actor, target, options }) {
     const rollKind = (options?.rollKind ?? "skill").toLowerCase();
@@ -73,14 +75,12 @@ export class DnD5eAdapter {
     const d20 = result?.roll?.dice?.find?.(d => d.faces === 20);
     const nat = Number(d20?.results?.[0]?.result ?? NaN);
     const dc = Number(ctx?.dc ?? 12);
-    if (nat === 1) return 0;
-    if (nat === 20) return 3;
-    return result.total >= dc ? 2 : 1;
+    return compute5eDegree(result.total, dc, nat);
   }
 
   async applyCinematicUpgrade(degree, ctx, { poolSpent } = {}) {
     if (!poolSpent || degree == null) return degree;
-    return Math.min(3, degree + 1);
+    return clampDegree(degree, 1);
   }
   async applyTacticalUpgrade(degree) { return degree; }
 

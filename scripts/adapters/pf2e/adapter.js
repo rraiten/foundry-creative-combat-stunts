@@ -1,6 +1,7 @@
 // PF2e system adapter
 
 import { SKILL_TO_DEF, SHORT_TO_LABEL } from "../../constants.js";
+import { parseCoolTier, computeDegree, clampDegree } from "../../logic.js";
 import { chooseRiderDialog } from "../../ui/dialogs.js";
 import { actorHasWeaknesses, applyActorWeaknessesPF2e } from "../../weakness/index.js";
 import { getLevelBasedDC, getDefenseDC } from "./dc.js";
@@ -80,14 +81,7 @@ export class PF2eAdapter {
     }
 
     const d20 = Number(extractKeptD20(result) ?? 0);
-
-    let degree = (total >= dc + 10) ? 3 :
-                (total >= dc)      ? 2 :
-                (total <= dc - 10) ? 0 : 1;
-
-    if (d20 === 20) degree = Math.min(3, degree + 1);
-    else if (d20 === 1) degree = Math.max(0, degree - 1);
-    return degree;
+    return computeDegree(total, dc, d20);
   }
 
   async applyOutcome({ actor, target, ctx, degree, tacticalRisk }) {
@@ -146,9 +140,7 @@ export class PF2eAdapter {
   }
 
   async applyPreRollAdjustments(ctx, { coolTier, chooseAdvNow }) {
-    const tier = (typeof coolTier === "string") ? (coolTier === "full" ? 2 : coolTier === "light" ? 1 : 0)
-    : Number(coolTier ?? 0);
-    ctx.coolBonus = tier;
+    ctx.coolBonus = parseCoolTier(coolTier);
 
     if (chooseAdvNow) {
       if (game.combat) {
@@ -163,7 +155,7 @@ export class PF2eAdapter {
 
   async applyCinematicUpgrade(degree, ctx, { poolSpent }) {
     if (!poolSpent) return degree;
-    return Math.min(3, degree + 1);
+    return clampDegree(degree, 1);
   }
 
   async applyTacticalUpgrade(degree, ctx) {

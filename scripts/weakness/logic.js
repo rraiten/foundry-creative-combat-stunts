@@ -3,6 +3,7 @@
  * Flags: actor.flags["creative-combat-stunts"].weaknesses = Array<CCSWeakness>
  */
 import { MODULE_ID, FLAGS } from "../constants.js";
+import { clampDegree } from "../logic.js";
 
 export function getActorWeaknesses(actor) {
   if (!actor) return [];
@@ -58,7 +59,7 @@ export async function applyActorWeaknessesPF2e(adapter, ctx, target, degree) {
     const eff = w.effect || {};
     if (eff.type === "degree-bump") {
       const bump = Number(eff.value ?? 1);
-      newDegree = Math.min(3, Math.max(0, (newDegree ?? 1) + bump));
+      newDegree = clampDegree(newDegree ?? 1, bump);
       texts.push("Degree +" + bump + " (Actor Weakness)");
     } else if (eff.type === "apply-condition") {
       const slug = String(eff.value || "").trim();

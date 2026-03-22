@@ -1,14 +1,7 @@
 // PF2e condition and effect application
 
 import { applyEffectItem } from "../../core.js";
-
-export function parseEntry(entry) {
-  const t = (entry || "").trim();
-  if (!t) return null;
-  if (t === "drop-item") return { text: "drop-item" };
-  const parts = t.split(":").map(s => s.trim());
-  return { slug: parts[0], value: parts[1] ? Number(parts[1]) : null };
-}
+import { parseEntry } from "../../logic.js";
 
 export async function applyConfiguredEffect(actor, entry, isSuccess) {
   const parsed = parseEntry(entry);

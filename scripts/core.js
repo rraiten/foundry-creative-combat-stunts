@@ -1,4 +1,5 @@
 import { MODULE_ID, DEGREE_LABELS, FLAGS } from "./constants.js";
+import { parseCoolTier, validatePoolSpend, computeDisplayMath } from "./logic.js";
 
 export async function applyEffectItem(target, name, rounds, rules = []) {
   const effect = {
@@ -43,8 +44,7 @@ export class CCF {
   async rollStunt({actor, target, options}){
     let { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId } = options;
 
-    const tierNum = typeof coolTier === "string" ? (coolTier === "full" ? 2 : coolTier === "light" ? 1 : 0)
-      : Number(coolTier ?? 0);
+    const tierNum = parseCoolTier(coolTier);
 
     if (!plausible && tierNum === 0) {
       ui.notifications?.warn("Stunt isn’t plausible or flavorful; resolving as a normal roll.");
@@ -141,16 +141,12 @@ export class CCF {
       result?.roll?.d20 ??
       0
     );
-    const skillMod = Number(ctx?._skillMod ?? 0);
-    const attackMod = Number(ctx?._attackMod ?? 0);
-    const cool = Number(ctx?.coolBonus ?? 0);
-    const risk = ctx?.tacticalRisk ? -2 : 0;
+    const { displayFormula, displayTotal, displayMod } = computeDisplayMath({
+      d20, skillMod: ctx?._skillMod, attackMod: ctx?._attackMod,
+      coolBonus: ctx?.coolBonus, tacticalRisk: ctx?.tacticalRisk,
+      challengeAdj: ctx?.challengeAdj, rollKind: ctx?.rollKind,
+    });
     const challenge = Number(ctx?.challengeAdj ?? 0);
-    const base = (String(ctx?.rollKind).toLowerCase() === "attack") ? attackMod : skillMod;
-    const displayMod = base + cool + risk + challenge;
-    const sign = displayMod >= 0 ? "+" : "-";
-    const displayFormula = `1d20 ${sign} ${Math.abs(displayMod)}`;
-    const displayTotal = d20 + displayMod;
 
     const challengeText = challenge ? (challenge > 0 ? `+${challenge}` : `${challenge}`) : "";
     const actionName = ctx?.rollLabel ?? (ctx?.rollKey?.toUpperCase?.() ?? "Skill");
@@ -186,10 +182,9 @@ export class CCF {
   async spendCinematicTokenOnce(actorId){
     const combat = game.combat; if (!combat) return {ok:false, reason:"No combat"};
     const pool = combat.getFlag(MODULE_ID, FLAGS.POOL);
-    if (!pool?.enabled) return {ok:false, reason:"Pool disabled"};
-    if ((pool.remaining ?? 0) <= 0) return {ok:false, reason:"No tokens left"};
     const usage = combat.getFlag(MODULE_ID, FLAGS.POOL_USAGE) || {};
-    if (usage[actorId]) return {ok:false, reason:"Already used this encounter"};
+    const check = validatePoolSpend(pool, usage, actorId);
+    if (!check.ok) return check;
     await combat.setFlag(MODULE_ID, FLAGS.POOL, { ...pool, remaining: pool.remaining - 1 });
     usage[actorId] = true;
     await combat.setFlag(MODULE_ID, FLAGS.POOL_USAGE, usage);

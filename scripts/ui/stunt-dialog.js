@@ -1,6 +1,7 @@
 import { MODULE_ID, FLAGS } from "../constants.js";
 import { getSpellAttackModPF2 as _getSpellAttackModPF2 } from "../adapters/pf2e/dc.js";
 import { openSimpleDialogV2 } from "./dialogs.js";
+import { buildStuntConfig } from "../logic.js";
 
 const isPF2 = () => (game?.system?.id ?? game.systemId ?? "") === "pf2e";
 
@@ -111,24 +112,20 @@ export async function openStuntDialog({ token, actor } = {}) {
           callback: () => {
             const root = dlg.element;
             const q = (sel) => root.querySelector(sel);
-            const coolStr  = (q('[name="cool"]')?.value || "none");
-            const coolTier = coolStr === "full" ? 2 : coolStr === "light" ? 1 : 0;
-            const rollKind = (q('[name="rollKind"]')?.value || "skill").toLowerCase();
-            const rollKey  = (rollKind === "attack"
-               ? (q('[name="strikeKey"]')?.value || strikes?.[0]?.value || "")
-               : (q('[name="rollKey"]')?.value   || "acr")
-            ).toLowerCase();
-            const tacticalRisk = q('[name="risk"]')?.checked ?? false;
-            const plausible    = q('[name="plausible"]')?.checked ?? false;
-            const challengeAdj = Number(q('[name="challengeAdj"]')?.value ?? 0);
-            let chooseAdvNow   = q('[name="advNow"]')?.checked ?? false;
-            if (coolTier < 2) chooseAdvNow = false;
-            const spendPoolNow = q('[name="spendPool"]')?.checked ?? false;
-            const triggerId    = q('[name="trigger"]')?.value || null;
-            game.ccf.rollStunt({
-              actor, target,
-              options: { rollKind, rollKey, coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId, challengeAdj }
+            const options = buildStuntConfig({
+              coolStr: q('[name="cool"]')?.value || "none",
+              rollKindStr: q('[name="rollKind"]')?.value || "skill",
+              strikeKey: q('[name="strikeKey"]')?.value || "",
+              rollKey: q('[name="rollKey"]')?.value || "acr",
+              risk: q('[name="risk"]')?.checked,
+              plausible: q('[name="plausible"]')?.checked,
+              challengeAdj: q('[name="challengeAdj"]')?.value,
+              advNow: q('[name="advNow"]')?.checked,
+              spendPool: q('[name="spendPool"]')?.checked,
+              triggerId: q('[name="trigger"]')?.value || null,
+              defaultStrike: strikes?.[0]?.value || "",
             });
+            game.ccf.rollStunt({ actor, target, options });
             return "roll";
           }
         },
