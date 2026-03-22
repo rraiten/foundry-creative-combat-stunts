@@ -44,21 +44,6 @@ export function registerAllSettings() {
     name: "CCS.Setting.Pf2eAdvantageOnce.Name",
     hint: "CCS.Setting.Pf2eAdvantageOnce.Hint"
   });
-  game.settings.register(MODULE_ID, "successRiders", {
-    scope: "world", config: true, type: String, default: "off-guard, frightened:1, prone, clumsy:1",
-    name: "CCS.Setting.SuccessRiders.Name",
-    hint: "CCS.Setting.SuccessRiders.Hint"
-  });
-  game.settings.register(MODULE_ID, "failureSetbacks", {
-    scope: "world", config: true, type: String, default: "prone, drop-item, off-guard, stunned:1",
-    name: "CCS.Setting.FailureSetbacks.Name",
-    hint: "CCS.Setting.FailureSetbacks.Hint"
-  });
-  game.settings.register(MODULE_ID, "critPrompt", {
-    scope: "world", config: true, type: Boolean, default: true,
-    name: "CCS.Setting.CritPrompt.Name",
-    hint: "CCS.Setting.CritPrompt.Hint"
-  });
   game.settings.register(MODULE_ID, "skipPlayerDialog", {
     name: "CCS.Setting.SkipPlayerDialog.Name",
     hint: "CCS.Setting.SkipPlayerDialog.Hint",

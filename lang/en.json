@@ -23,12 +23,6 @@
 
   "CCS.Setting.Pf2eAdvantageOnce.Name": "PF2e: Allow once-per-combat Advantage instead of +2",
   "CCS.Setting.Pf2eAdvantageOnce.Hint": "PF2e only. Players may declare roll-twice-keep-higher once per combat instead of a +2 Cool bonus.",
-  "CCS.Setting.SuccessRiders.Name": "Default Success Rider Menu (PF2e)",
-  "CCS.Setting.SuccessRiders.Hint": "PF2e only. Comma-separated PF2e conditions with optional :value.",
-  "CCS.Setting.FailureSetbacks.Name": "Default Failure Setback Menu (PF2e)",
-  "CCS.Setting.FailureSetbacks.Hint": "PF2e only. Comma-separated entries; for conditions use PF2e slugs.",
-  "CCS.Setting.CritPrompt.Name": "PF2e: Prompt after Crit",
-  "CCS.Setting.CritPrompt.Hint": "PF2e only: after a Tactical Risk crit, prompt for Crit Deck vs rider.",
   "CCS.Setting.SkipPlayerDialog.Name": "Stunt: Skip PF2e pre-roll dialog for players",
   "CCS.Setting.SkipPlayerDialog.Hint": "When enabled, players will NOT see the PF2e pre-roll dialog for stunt rolls. GMs always see it.",
   "CCS.Setting.WeaknessTemplatesMenu.Name": "Weakness Templates (CCS)",

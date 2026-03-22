@@ -95,7 +95,7 @@ export class DnD5eAdapter {
     if (!poolSpent || degree == null) return degree;
     return clampDegree(degree, 1);
   }
-  async applyTacticalUpgrade(degree) { return degree; }
+  async applyTacticalUpgrade(degree, ctx) { return degree; }
 
   async applyOutcome({ actor, target, ctx, degree, tacticalRisk }) {
     if (!tacticalRisk) return { degree };
