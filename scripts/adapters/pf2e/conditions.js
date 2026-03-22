@@ -21,6 +21,7 @@ export async function applyConfiguredEffect(actor, entry, isSuccess) {
 }
 
 export async function applyTriggerEffect(target, trigger, degree) {
+  if (!trigger || !target) return;
   const eff = trigger.effect || {};
   const rounds = eff.durationRounds ?? 1;
   const rules = [];

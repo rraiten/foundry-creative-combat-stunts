@@ -19,7 +19,13 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("createCombat", async (combat) => {
-  await combat.setFlag(MODULE_ID, FLAGS.POOL, { ...DEFAULT_POOL });
-  await combat.setFlag(MODULE_ID, FLAGS.POOL_USAGE, {});
-  await combat.setFlag(MODULE_ID, FLAGS.ADV_USAGE, {});
+  try {
+    await Promise.all([
+      combat.setFlag(MODULE_ID, FLAGS.POOL, { ...DEFAULT_POOL }),
+      combat.setFlag(MODULE_ID, FLAGS.POOL_USAGE, {}),
+      combat.setFlag(MODULE_ID, FLAGS.ADV_USAGE, {}),
+    ]);
+  } catch (e) {
+    console.warn("CCS: Failed to initialize combat flags", e);
+  }
 });

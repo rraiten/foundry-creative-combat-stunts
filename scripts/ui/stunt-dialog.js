@@ -143,7 +143,7 @@ export async function openStuntDialog({ token, actor } = {}) {
       const tick = () => {
         const el = dlg?.element?.querySelector?.(sel);
         if (el) return res(el);
-        if (++n > tries) return rej();
+        if (++n > tries) return rej(new Error(`Element not found: ${sel}`));
         setTimeout(tick, 25);
       };
       tick();

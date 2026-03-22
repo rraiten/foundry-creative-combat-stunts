@@ -7,7 +7,7 @@ import { getSpellAttackModPF2 } from "./dc.js";
 export function extractKeptD20(resultOrRoll) {
   // 0) Trust adapter-set value if present
   const pre = Number(resultOrRoll?._ccsD20);
-  if (Number.isFinite(pre) && pre) return pre;
+  if (Number.isFinite(pre) && pre !== 0) return pre;
 
   const roll = resultOrRoll?.roll ?? resultOrRoll;
   const dice = Array.isArray(roll?.dice) ? roll.dice : [];
@@ -71,7 +71,8 @@ export async function rollAsStrike(ctx) {
   const rollKey = String(ctx.rollKey || "").toLowerCase();
 
   // 1) pick an existing strike (prefer unarmed/fist, then melee)
-  const strikes = actor.system?.actions ?? actor.system?.strikes ?? [];
+  const strikesRaw = actor.system?.actions ?? actor.system?.strikes ?? [];
+  const strikes = Array.isArray(strikesRaw) ? strikesRaw : [];
   const norm = (s) => (s ?? "").toString().toLowerCase();
 
   let strike;
