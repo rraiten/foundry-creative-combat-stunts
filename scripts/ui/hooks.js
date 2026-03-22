@@ -7,6 +7,7 @@ export function registerUI() {
   Hooks.on("renderCombatTracker", (_app, element) => {
     const $el = element instanceof jQuery ? element : $(element);
     $el.find(".ccs-pool-button").remove();
+    if (!game.combat) return; // No button when no active combat
     const $btn = $(
       `<button type="button" class="ccs-pool-button">
          <i class="fas fa-bolt"></i> ${game.i18n.localize("CCS.UI.CinematicPool")}

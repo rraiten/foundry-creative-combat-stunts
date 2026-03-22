@@ -75,7 +75,7 @@ export class PF2eAdapter {
   async applyOutcome({ actor, target, ctx, degree, tacticalRisk }) {
     const isCrit = tacticalRisk && (degree === 0 || degree === 3);
     if (isCrit) {
-      return { applied: "draw from deck", crit: degree === 3 ? "critical-success" : "critical-failure", degree };
+      return { degree };
     }
 
     if (!tacticalRisk) return { degree };

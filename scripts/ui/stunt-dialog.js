@@ -5,6 +5,8 @@ import { buildStuntConfig } from "../logic.js";
 
 const isPF2 = () => (game?.system?.id ?? game.systemId ?? "") === "pf2e";
 
+let _stuntDialogInstance = null;
+
 export const getFlavorOptions = () =>
   (isPF2()
     ? [
@@ -90,6 +92,12 @@ function wireDialogVisibility(dlg) {
 }
 
 export async function openStuntDialog({ token, actor } = {}) {
+  // Close existing dialog to prevent duplicates
+  if (_stuntDialogInstance?.rendered) {
+    _stuntDialogInstance.close();
+    _stuntDialogInstance = null;
+  }
+
   token ??= canvas?.tokens?.controlled?.[0] ?? null;
   actor ??= token?.actor ?? (game.user?.character ? game.actors.get(game.user.character) : null);
   if (!actor) return ui.notifications?.warn(game.i18n.localize("CCS.Notify.NoActor"));
@@ -165,5 +173,6 @@ export async function openStuntDialog({ token, actor } = {}) {
     submit: (_result) => {},
   });
 
+  _stuntDialogInstance = dlg;
   wireDialogVisibility(dlg);
 }

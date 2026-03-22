@@ -16,6 +16,10 @@ export class CCSWeaknessManager extends FormApplication {
   get actor() { return this.object; }
 
   async getData() {
+    if (!this.actor?.id) {
+      setTimeout(() => this.close(), 0);
+      return { actor: null, weaknesses: [], templates: [] };
+    }
     return {
       actor: this.actor,
       weaknesses: getActorWeaknesses(this.actor),
