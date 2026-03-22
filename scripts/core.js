@@ -1,5 +1,6 @@
-import { MODULE_ID, DEGREE_LABELS, FLAGS } from "./constants.js";
-import { parseCoolTier, validatePoolSpend, computeDisplayMath } from "./logic.js";
+import { MODULE_ID, FLAGS } from "./constants.js";
+import { parseCoolTier, extractD20FromResult, buildChatCardData } from "./logic.js";
+import { canUseOncePerCombat, markUsedOncePerCombat, spendCinematicToken } from "./pool.js";
 
 export async function applyEffectItem(target, name, rounds, rules = []) {
   const effect = {
@@ -29,37 +30,25 @@ export class CCF {
 
   isPF2 = () => (game?.system?.id ?? game.systemId ?? "") === "pf2e";
 
-  async _canUseOncePerCombat(actorId, key){
-    const combat = game.combat; if (!combat) return false;
-    const usage = combat.getFlag(MODULE_ID, key) || {};
-    return !usage[actorId];
-  }
-  async _markUsedOncePerCombat(actorId, key){
-    const combat = game.combat; if (!combat) return;
-    const usage = combat.getFlag(MODULE_ID, key) || {};
-    usage[actorId] = true;
-    await combat.setFlag(MODULE_ID, key, usage);
-  }
-
   async rollStunt({actor, target, options}){
     let { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId } = options;
+    const combat = game.combat;
 
     const tierNum = parseCoolTier(coolTier);
 
     if (!plausible && tierNum === 0) {
-      ui.notifications?.warn("Stunt isn’t plausible or flavorful; resolving as a normal roll.");
+      ui.notifications?.warn("Stunt isn't plausible or flavorful; resolving as a normal roll.");
     }
 
-    // Once-per-combat Advantage gate (PF2e only; harmless on 5e where UI hides)
+    // Once-per-combat Advantage gate
     let advUsed = false;
     if (chooseAdvNow) {
-      const ok = await this._canUseOncePerCombat(actor.id, FLAGS.ADV_USAGE);
+      const ok = await canUseOncePerCombat(combat, actor.id, FLAGS.ADV_USAGE);
       if (!ok) {
         ui.notifications?.warn("You have already used Advantage this combat.");
         chooseAdvNow = false;
       } else {
-        // lock it in for this encounter immediately (prevents double-dipping)
-        await this._markUsedOncePerCombat(actor.id, FLAGS.ADV_USAGE);
+        await markUsedOncePerCombat(combat, actor.id, FLAGS.ADV_USAGE);
         advUsed = true;
       }
     }
@@ -67,7 +56,7 @@ export class CCF {
     // Predeclare Cinematic Pool spend
     let poolSpent = false;
     if (spendPoolNow) {
-      const spend = await this.spendCinematicTokenOnce(actor.id);
+      const spend = await spendCinematicToken(combat, actor.id);
       if (!spend.ok) {
         ui.notifications?.warn(spend.reason || "Unable to spend Cinematic Pool token.");
         spendPoolNow = false;
@@ -77,118 +66,40 @@ export class CCF {
     }
 
     const ctx = await this.adapter.buildContext({actor, target, options});
-    
-    // ensure the card/DC path uses the user’s choice
     ctx.rollKind = (options?.rollKind || ctx.rollKind || "skill").toLowerCase();
-
     ctx.chooseAdvNow = chooseAdvNow;
-    ctx.tacticalRisk = !!tacticalRisk;  // available both in ctx and as argument
+    ctx.tacticalRisk = !!tacticalRisk;
 
-    // Resolve triggerId (if provided) into actual trigger object from target
+    // Resolve triggerId into trigger object
     if (triggerId && target) {
       const triggers = target.getFlag(MODULE_ID, FLAGS.TRIGGERS) || [];
       ctx.trigger = triggers.find(t => t.id === triggerId) || null;
     }
 
-    // Let adapter map Cool/Tactical to native mechanics
     await this.adapter.applyPreRollAdjustments(ctx, {coolTier, plausible, chooseAdvNow, tacticalRisk});
 
-    // Roll (system-specific)
     const result = await this.adapter.roll(ctx);
-    if (!result) return; // adapter already notified; stop cleanly
+    if (!result) return;
     let degree = await this.adapter.degreeOfSuccess(result, ctx);
 
-    // Cinematic Pool upgrade (system-specific mapping handled by adapter if needed)
     degree = await this.adapter.applyCinematicUpgrade(degree, ctx, {poolSpent});
-
-    // Tactical Risk success upgrade, if adapter uses degrees
     degree = await this.adapter.applyTacticalUpgrade(degree, ctx);
 
-    // Apply outcomes (riders/effects)
     const applied = await this.adapter.applyOutcome({actor, target, ctx, degree, tacticalRisk});
 
-    // Chat
     await this.postChat({actor, target, ctx, result, applied, degree, poolSpent, advUsed: chooseAdvNow});
   }
 
   async postChat({actor, target, ctx, result, applied, degree, poolSpent, advUsed}){
-    const degreeTxt = (degree != null && DEGREE_LABELS[degree]) ? DEGREE_LABELS[degree] : (result?.outcome || "—");
+    const d20 = extractD20FromResult(result);
+    const data = buildChatCardData({ degree, ctx, applied, poolSpent, advUsed, isPF2: this.isPF2(), d20 });
 
-    // --- Normalize applied effects for clear chat output (no helper needed in HBS)
-    const toText = (v) => {
-      if (Array.isArray(v)) return v.filter(Boolean).join(", ");
-      const s = (v ?? "").toString().trim();
-      return s;
-    };
-
-    const appliedTargetText = toText(applied?.targetEffect);
-    const appliedSelfText   = toText(applied?.selfEffect);
-    const hasAnyApplied     = !!(appliedTargetText || appliedSelfText);
-
-
-    const extra = [];
-    if (advUsed && ctx.rollTwice === "keep-higher") extra.push("🎲 Advantage consumed");
-    if (poolSpent) extra.push("🎬 Cinematic Pool spent (+1 degree/upgrade)");
-
-    // Display math for chat card: skill-based (skill + cool − risk), independent of strike formula
-    const _d20Die = result?.roll?.dice?.find?.(d => d?.faces === 20) ?? null;
-    const d20 = Number(
-      _d20Die?.results?.[0]?.result ??
-      _d20Die?.results?.[0]?.value  ??
-      _d20Die?.total ??
-      result?.roll?.terms?.find?.(t => t?.faces === 20)?.results?.[0]?.result ??
-      result?._ccsD20 ??            // <-- fallback if adapter provided it
-      result?.roll?.d20 ??
-      0
+    const content = await foundry.applications.handlebars.renderTemplate(
+      `modules/${MODULE_ID}/templates/chat-card.hbs`,
+      { ...data, actorName: actor?.name, targetName: target?.name,
+        total: data.displayTotal, formula: data.displayFormula,
+        rollTooltip: (await result?.roll?.getTooltip?.()) ?? null }
     );
-    const { displayFormula, displayTotal, displayMod } = computeDisplayMath({
-      d20, skillMod: ctx?._skillMod, attackMod: ctx?._attackMod,
-      coolBonus: ctx?.coolBonus, tacticalRisk: ctx?.tacticalRisk,
-      challengeAdj: ctx?.challengeAdj, rollKind: ctx?.rollKind,
-    });
-    const challenge = Number(ctx?.challengeAdj ?? 0);
-
-    const challengeText = challenge ? (challenge > 0 ? `+${challenge}` : `${challenge}`) : "";
-    const actionName = ctx?.rollLabel ?? (ctx?.rollKey?.toUpperCase?.() ?? "Skill");
-
-    const appliedFallback = ((!applied || (!applied.targetEffect && !applied.selfEffect))
-      && (degreeTxt === "Critical Success" || degreeTxt === "Critical Failure"))
-      ? "Draw a Creative Stunt Card" : null;
-
-    const content = await foundry.applications.handlebars.renderTemplate(`modules/${MODULE_ID}/templates/chat-card.hbs`,{
-      displayFormula, displayTotal, d20,  challengeText, actionName,
-      actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
-      total: displayTotal, formula: displayFormula, 
-      dc: (String(ctx?.rollKind ?? '').toLowerCase() === 'attack' ? (ctx._dcStrike ?? ctx.dc) : ctx.dc),
-      dcStrike: ctx?._dcStrike ?? null,
-      dcDelta: (ctx?._dcStrike != null && ctx?.dc != null) ? (ctx._dcStrike - ctx.dc) : null,
-      modDelta: (ctx?._dcStrike != null && ctx?.dc != null) ? (ctx._dcStrike - ctx.dc) : null,
-      rollTooltip: (await result?.roll?.getTooltip?.()) ?? null,
-      degree: degreeTxt,
-      coolBonus: ctx.coolBonus ?? 0,
-      coolNote: (ctx.coolBonus ? `(+${ctx.coolBonus} Flavor)` : (ctx.rollTwice === "keep-higher" ? "(Advantage used)" : "")),
-      rollTwice: ctx.rollTwice === "keep-higher",
-      tacticalRisk: !!ctx.tacticalRisk, applied, appliedFallback,
-      spentPool: poolSpent ? true : false,
-      triggerLabel: ctx.trigger?.label || null,
-      hasAnyApplied,
-      appliedTargetText: appliedTargetText || null,
-      appliedSelfText:   appliedSelfText   || null,
-      logExtras: extra.join(" • "),
-    });
     ChatMessage.create({speaker: ChatMessage.getSpeaker({actor}), content});
   }
-
-  async spendCinematicTokenOnce(actorId){
-    const combat = game.combat; if (!combat) return {ok:false, reason:"No combat"};
-    const pool = combat.getFlag(MODULE_ID, FLAGS.POOL);
-    const usage = combat.getFlag(MODULE_ID, FLAGS.POOL_USAGE) || {};
-    const check = validatePoolSpend(pool, usage, actorId);
-    if (!check.ok) return check;
-    await combat.setFlag(MODULE_ID, FLAGS.POOL, { ...pool, remaining: pool.remaining - 1 });
-    usage[actorId] = true;
-    await combat.setFlag(MODULE_ID, FLAGS.POOL_USAGE, usage);
-    return {ok:true};
-  }
 }
-

@@ -1,24 +1,12 @@
 // PF2e system adapter
 
 import { SKILL_TO_DEF, SHORT_TO_LABEL } from "../../constants.js";
-import { parseCoolTier, computeDegree, clampDegree } from "../../logic.js";
+import { parseCoolTier, computeDegree, clampDegree, normalizeSkillKey } from "../../logic.js";
 import { chooseRiderDialog } from "../../ui/dialogs.js";
 import { actorHasWeaknesses, applyActorWeaknessesPF2e } from "../../weakness/index.js";
 import { getLevelBasedDC, getDefenseDC } from "./dc.js";
 import { extractKeptD20, rollAsStrike } from "./rolling.js";
 import { applyCondition, applyConfiguredEffect, applyTriggerEffect } from "./conditions.js";
-
-export function normalizeSkillKey(k) {
-  const v = String(k || "").toLowerCase();
-  if (v === "acrobatics" || v === "acr") return "acr";
-  if (v === "athletics"  || v === "ath") return "ath";
-  if (v === "crafting"   || v === "cra") return "cra";
-  if (v === "medicine"   || v === "med") return "med";
-  if (v === "stealth"    || v === "ste") return "ste";
-  if (v === "survival"   || v === "sur") return "sur";
-  if (v === "thievery"   || v === "thi") return "thi";
-  return v;
-}
 
 export class PF2eAdapter {
   async buildContext({ actor, target, options }) {

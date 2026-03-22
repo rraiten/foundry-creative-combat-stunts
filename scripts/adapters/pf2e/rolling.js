@@ -1,6 +1,7 @@
 // PF2e strike rolling and d20 extraction
 
 import { MODULE_ID } from "../../constants.js";
+import { selectStrike, buildStuntModifiers } from "../../logic.js";
 import { getSpellAttackModPF2 } from "./dc.js";
 
 // Robust kept-d20 extractor (handles kh/kl, rerolls, pools)
@@ -60,42 +61,32 @@ export function extractKeptD20(resultOrRoll) {
   return null;
 }
 
+function computeSkillMod(actor, rollKey, ctx) {
+  const skillObj = actor.system?.skills?.[rollKey] ?? actor.skills?.[rollKey] ?? null;
+  return Number(
+    skillObj?.mod ?? skillObj?.totalModifier ?? skillObj?.value ??
+    ctx.stat?.check?.mod ?? ctx.stat?.mod ?? 0
+  );
+}
+
+function getStrikeAttackMod(strike) {
+  return Number(strike?.totalModifier ?? strike?.attack?.totalModifier ?? strike?.mod) || 0;
+}
+
 export async function rollAsStrike(ctx) {
-  const actor  = ctx.actor;
-  const target = ctx.target;
+  const { actor, target } = ctx;
   if (!actor || !target) {
     ui.notifications?.warn("PF2e: No actor or target for Stunt Strike.");
     return null;
   }
 
   const rollKey = String(ctx.rollKey || "").toLowerCase();
+  const isAttack = String(ctx.rollKind || "").toLowerCase() === "attack";
 
-  // 1) pick an existing strike (prefer unarmed/fist, then melee)
+  // 1) Select strike
   const strikesRaw = actor.system?.actions ?? actor.system?.strikes ?? [];
   const strikes = Array.isArray(strikesRaw) ? strikesRaw : [];
-  const norm = (s) => (s ?? "").toString().toLowerCase();
-
-  let strike;
-  let _isSpellAttackChoice = false;
-  if ((ctx.rollKind || "").toLowerCase() === "attack" && ctx.rollKey) {
-    const key = norm(ctx.rollKey);
-    _isSpellAttackChoice = (key === "__spell_attack__");
-    if (!_isSpellAttackChoice) {
-      strike = strikes.find(s =>
-        norm(s?.slug) === key ||
-        norm(s?.item?.slug) === key ||
-        norm(s?.item?.id) === key ||
-        norm(s?.label) === key ||
-        norm(s?.item?.name) === key
-      );
-    }
-  }
-
-  // fallback if nothing matched
-  strike = strike ||
-    strikes.find(s => s?.item?.system?.traits?.value?.includes?.("unarmed")) ||
-    strikes.find(s => (s?.item?.system?.range?.value ?? null) == null) ||
-    strikes[0];
+  const { strike, isSpellAttack } = selectStrike(strikes, ctx.rollKind, ctx.rollKey);
 
   const attackFn = strike?.attack ?? strike?.variants?.[0]?.roll;
   if (typeof attackFn !== "function") {
@@ -103,103 +94,48 @@ export async function rollAsStrike(ctx) {
     return null;
   }
 
-  // 2) compute the chosen SKILL modifier (don't rely on ctx.stat)
-  const skillObj =
-    actor.system?.skills?.[rollKey] ??
-    actor.skills?.[rollKey] ?? null;
-  const skillMod = Number(
-    skillObj?.mod ??
-    skillObj?.totalModifier ??
-    skillObj?.value ??
-    ctx.stat?.check?.mod ??
-    ctx.stat?.mod ??
-    0
-  );
+  // 2) Compute modifiers for context
+  const skillMod = computeSkillMod(actor, rollKey, ctx);
+  const currentAttack = getStrikeAttackMod(strike);
+  const spellAttackMod = isSpellAttack ? getSpellAttackModPF2(actor) : null;
 
   ctx._skillMod = skillMod;
+  ctx._attackMod = isSpellAttack && Number.isFinite(spellAttackMod) ? spellAttackMod : currentAttack;
 
-  // 3) current strike attack modifier
-  const currentAttack =
-    Number(strike?.totalModifier ?? strike?.attack?.totalModifier ?? strike?.mod) || 0;
-
-  ctx._attackMod = Number(currentAttack) || 0;
-  if ((String(ctx.rollKind || '').toLowerCase() === 'attack')) {
-    ctx.rollLabel = strike?.label ?? strike?.item?.name ?? ctx.rollLabel ?? 'Strike';
-    if (_isSpellAttackChoice) ctx.rollLabel = "Spell Attack";
+  if (isAttack) {
+    ctx.rollLabel = strike?.label ?? strike?.item?.name ?? ctx.rollLabel ?? "Strike";
+    if (isSpellAttack) ctx.rollLabel = "Spell Attack";
   }
 
-  // 4) build stunt modifiers
-  const Mod  = game.pf2e?.Modifier ?? game.pf2e?.modifiers?.Modifier;
-  const mods = [];
-
-  // A0) If the synthetic "Spell Attack" was chosen, shim to the actor's spell-attack mod
-  if (_isSpellAttackChoice && Mod) {
-    const spellAttackMod = getSpellAttackModPF2(actor);
-    if (Number.isFinite(spellAttackMod)) {
-      const delta = spellAttackMod - (Number(currentAttack) || 0);
-      if (delta) {
-        mods.push(new Mod({ label: "Stunt (spell attack→strike)", modifier: delta, type: "untyped" }));
-      }
-      ctx._attackMod = spellAttackMod;
-    }
-  }
-
-  // A) remap strike total to the skill total (ONLY for skill-based stunts)
-  const deltaSkillVsStrike = skillMod - currentAttack;
-  if (Mod && (String(ctx.rollKind).toLowerCase() !== "attack") && deltaSkillVsStrike) {
-    mods.push(new Mod({ label: `Stunt (skill→strike: ${rollKey || "skill"})`, modifier: deltaSkillVsStrike, type: "untyped" }));
-  }
-
-  // B) cool bonus (unless swapped for advantage earlier)
-  if (Mod && ctx.coolBonus) {
-    mods.push(new Mod({ label: "Stunt (cool)", modifier: Number(ctx.coolBonus) || 0, type: "circumstance" }));
-  }
-
-  // C) tactical risk: explicit -2 line
-  if (Mod && ctx.tacticalRisk) {
-    mods.push(new Mod({ label: "Stunt (risk)", modifier: -2, type: "untyped" }));
-  }
-
-  // D) challenge adjustments (weakness/resistance)
-  if (Mod && (Number(ctx.challengeAdj ?? 0) !== 0)) {
-    const val = Number(ctx.challengeAdj) || 0;
-    const tag =
-      val > 0 ? (val === 4 ? "major weakness" : "weakness")
-              : (val === -4 ? "major resistance" : "resistance");
-
-    mods.push(
-      new Mod({
-        label: `Stunt (challenge: ${tag})`,
-        modifier: val,
-        type: "untyped",
-      })
-    );
-  }
-
-  // E) defense map shim: make margin vs AC equal margin vs mapped DC
+  // 3) Build modifier descriptors (pure logic) then instantiate Mod objects
   const targetAC = Number(target?.system?.attributes?.ac?.value ?? target?.attributes?.ac?.value ?? 0) || 0;
-  const isAttackStunt = String(ctx.rollKind || '').toLowerCase() === 'attack';
-  if (isAttackStunt) {
+  const mappedDC = Number.isFinite(ctx.dc) ? Number(ctx.dc) : null;
+
+  const modDescriptors = buildStuntModifiers({
+    skillMod, currentAttack, spellAttackMod, rollKind: ctx.rollKind, rollKey,
+    coolBonus: ctx.coolBonus, tacticalRisk: ctx.tacticalRisk,
+    challengeAdj: ctx.challengeAdj, targetAC, mappedDC, isSpellAttack,
+  });
+
+  const Mod = game.pf2e?.Modifier ?? game.pf2e?.modifiers?.Modifier;
+  const mods = Mod ? modDescriptors.map(d => new Mod(d)) : [];
+
+  // Set DC context for degree-of-success
+  if (isAttack) {
     ctx._dcStrike = targetAC;
   } else {
-      const mappedDC = Number.isFinite(ctx.dc) ? Number(ctx.dc) : null;
-      const dcAdj = (mappedDC != null) ? (targetAC - mappedDC) : 0;
-      if (Mod && mappedDC != null && dcAdj) {
-        mods.push(new Mod({ label: `Stunt (defense map ${mappedDC}→AC ${targetAC})`, modifier: dcAdj, type: "untyped" }));
-      }
-      ctx._dcStrike = targetAC;
-      ctx._dcAdj    = dcAdj;
+    ctx._dcStrike = targetAC;
+    ctx._dcAdj = mappedDC != null ? (targetAC - mappedDC) : 0;
   }
 
-  // 5) roll the strike (native PF2e attack card -> crit decks can trigger)
+  // 4) Execute the roll
   let rollOpts = { createMessage: true, skipDialog: true };
   if (ctx.rollTwice === "keep-higher") rollOpts.rollTwice = "keep-higher";
   if (mods.length) rollOpts.modifiers = mods;
 
   try {
     const skipPref = !!game.settings.get(MODULE_ID, "skipPlayerDialog");
-    const wantSkip = skipPref;
-    rollOpts.skipDialog = wantSkip;
+    rollOpts.skipDialog = skipPref;
   } catch (_) {}
 
   const r = await attackFn(rollOpts);

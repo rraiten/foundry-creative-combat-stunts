@@ -33,6 +33,62 @@ export function getSkillChoices(actor, sysId) {
   })).sort((a, b) => a.label.localeCompare(b.label));
 }
 
+function buildStrikeChoices(actor) {
+  const strikesRaw = actor.system?.actions ?? actor.system?.strikes ?? [];
+  const strikes = (Array.isArray(strikesRaw) ? strikesRaw : []).map(s => ({
+    value: (s?.slug ?? s?.item?.slug ?? s?.item?.id ?? s?.label ?? s?.item?.name ?? "").toString().toLowerCase(),
+    label: (s?.label ?? s?.item?.name ?? "Strike")
+  }));
+
+  if (isPF2()) {
+    const spellAtk = _getSpellAttackModPF2(actor);
+    if (Number.isFinite(spellAtk)) {
+      strikes.unshift({ value: "__spell_attack__", label: "Spell Attack" });
+    }
+  }
+
+  return strikes;
+}
+
+function wireDialogVisibility(dlg) {
+  const waitFor = (sel, tries = 20) => new Promise((res, rej) => {
+    let n = 0;
+    const tick = () => {
+      const el = dlg?.element?.querySelector?.(sel);
+      if (el) return res(el);
+      if (++n > tries) return rej(new Error(`Element not found: ${sel}`));
+      setTimeout(tick, 25);
+    };
+    tick();
+  });
+
+  // Wire advantage row visibility
+  (async () => {
+    try {
+      const cool = await waitFor('[name="cool"]');
+      const advRow = await waitFor('#ccs-adv-row');
+      const update = () => { advRow.style.display = (cool.value === "full" || cool.value === "2") ? "" : "none"; };
+      cool.addEventListener("change", update);
+      update();
+    } catch (_) { /* non-PF2 or row missing */ }
+  })();
+
+  // Wire skill/attack row toggle
+  try {
+    const root = dlg.element?.[0] ?? dlg.element;
+    const select = root?.querySelector('[name="rollKind"]');
+    const skill = root?.querySelector('.ccs-row-skill');
+    const atk = root?.querySelector('.ccs-row-attack');
+    const update = () => {
+      const k = (select?.value || "skill").toLowerCase();
+      if (skill) skill.style.display = (k === "skill") ? "" : "none";
+      if (atk) atk.style.display = (k === "attack") ? "" : "none";
+    };
+    select?.addEventListener("change", update);
+    update();
+  } catch (_) {}
+}
+
 export async function openStuntDialog({ token, actor } = {}) {
   token ??= canvas?.tokens?.controlled?.[0] ?? null;
   actor ??= token?.actor ?? (game.user?.character ? game.actors.get(game.user.character) : null);
@@ -40,34 +96,8 @@ export async function openStuntDialog({ token, actor } = {}) {
 
   const sys = game?.system?.id ?? game.systemId ?? "";
   const target = Array.from(game.user?.targets ?? [])[0]?.actor ?? null;
-
-  let skills = getSkillChoices(actor, sys);
-
-  // PF2e strikes list for "Attack" source
-  const strikesRaw = actor.system?.actions ?? actor.system?.strikes ?? [];
-  const strikes = (Array.isArray(strikesRaw) ? strikesRaw : []).map(s => ({
-    value: (s?.slug ?? s?.item?.slug ?? s?.item?.id ?? s?.label ?? s?.item?.name ?? "").toString().toLowerCase(),
-    label: (s?.label ?? s?.item?.name ?? "Strike")
-  }));
-
-  // PF2e only: add a synthetic "Spell Attack" option if the actor has one
-  if ((game?.system?.id ?? game.systemId ?? "") === "pf2e") {
-    const spellAtk = _getSpellAttackModPF2(actor);
-    if (Number.isFinite(spellAtk)) {
-      strikes.unshift({
-        value: "__spell_attack__",
-        label: `Spell Attack`,
-      });
-    }
-  }
-
-  const rollSources = [
-    { value: "skill", label: "Skill" },
-    { value: "attack", label: "Attack (Strike)" },
-  ];
-
-  const hideRollSource = (Array.isArray(rollSources) && rollSources.length <= 1);
-  const effectiveRollKind = hideRollSource ? (rollSources[0]?.value ?? "skill") : null;
+  const skills = getSkillChoices(actor, sys);
+  const strikes = buildStrikeChoices(actor);
 
   const pf2eAdvOnce = sys === "pf2e"
     ? game.settings.get(MODULE_ID, "pf2eAdvantageOnce")
@@ -81,93 +111,57 @@ export async function openStuntDialog({ token, actor } = {}) {
   const content = await foundry.applications.handlebars.renderTemplate(
     `modules/${MODULE_ID}/templates/stunt-dialog.hbs`,
     {
-      actor,
-      isPF2: sys === "pf2e",
+      actor, isPF2: sys === "pf2e",
       targetName: target?.name ?? "(none)",
       pf2eAdvOnce,
       poolEnabled: !!pool?.enabled,
       poolRemaining: pool?.remaining ?? 0,
       triggers,
       flavorOptions: getFlavorOptions(),
-      skills,
-      strikes,
-      rollSources,
-      hideRollSource,
-      effectiveRollKind,
+      skills, strikes,
+      rollSources: [
+        { value: "skill", label: "Skill" },
+        { value: "attack", label: "Attack (Strike)" },
+      ],
+      hideRollSource: false,
+      effectiveRollKind: null,
     }
   );
 
   const D2 = foundry?.applications?.api?.DialogV2;
+  if (!D2) return;
 
-  if (D2) {
-    let dlg;
-    dlg = openSimpleDialogV2({
-      title: "Creative Stunt",
-      content,
-      buttons: [
-        {
-          action: "roll",
-          label: "Roll",
-          default: true,
-          callback: () => {
-            const root = dlg.element;
-            const q = (sel) => root.querySelector(sel);
-            const options = buildStuntConfig({
-              coolStr: q('[name="cool"]')?.value || "none",
-              rollKindStr: q('[name="rollKind"]')?.value || "skill",
-              strikeKey: q('[name="strikeKey"]')?.value || "",
-              rollKey: q('[name="rollKey"]')?.value || "acr",
-              risk: q('[name="risk"]')?.checked,
-              plausible: q('[name="plausible"]')?.checked,
-              challengeAdj: q('[name="challengeAdj"]')?.value,
-              advNow: q('[name="advNow"]')?.checked,
-              spendPool: q('[name="spendPool"]')?.checked,
-              triggerId: q('[name="trigger"]')?.value || null,
-              defaultStrike: strikes?.[0]?.value || "",
-            });
-            game.ccf.rollStunt({ actor, target, options });
-            return "roll";
-          }
-        },
-        { action: "cancel", label: "Cancel" },
-      ],
-      submit: (_result) => {},
-    });
+  let dlg;
+  dlg = openSimpleDialogV2({
+    title: "Creative Stunt",
+    content,
+    buttons: [
+      {
+        action: "roll", label: "Roll", default: true,
+        callback: () => {
+          const root = dlg.element;
+          const q = (sel) => root.querySelector(sel);
+          const options = buildStuntConfig({
+            coolStr: q('[name="cool"]')?.value || "none",
+            rollKindStr: q('[name="rollKind"]')?.value || "skill",
+            strikeKey: q('[name="strikeKey"]')?.value || "",
+            rollKey: q('[name="rollKey"]')?.value || "acr",
+            risk: q('[name="risk"]')?.checked,
+            plausible: q('[name="plausible"]')?.checked,
+            challengeAdj: q('[name="challengeAdj"]')?.value,
+            advNow: q('[name="advNow"]')?.checked,
+            spendPool: q('[name="spendPool"]')?.checked,
+            triggerId: q('[name="trigger"]')?.value || null,
+            defaultStrike: strikes?.[0]?.value || "",
+          });
+          game.ccf.rollStunt({ actor, target, options });
+          return "roll";
+        }
+      },
+      { action: "cancel", label: "Cancel" },
+    ],
+    submit: (_result) => {},
+  });
 
-    // Robustly wire the PF2 "Use advantage..." row
-    const waitFor = (sel, tries = 20) => new Promise((res, rej) => {
-      let n = 0;
-      const tick = () => {
-        const el = dlg?.element?.querySelector?.(sel);
-        if (el) return res(el);
-        if (++n > tries) return rej(new Error(`Element not found: ${sel}`));
-        setTimeout(tick, 25);
-      };
-      tick();
-    });
-    try {
-      const cool   = await waitFor('[name="cool"]');
-      const advRow = await waitFor('#ccs-adv-row');
-      const update = () => { advRow.style.display = (cool.value === "full" || cool.value === "2") ? "" : "none"; };
-      cool.addEventListener("change", update);
-      update();
-    } catch (_) { /* non-PF2 or row missing: ignore */ }
-
-    // make sure only 1 strike or skill selection is shown not both
-    try {
-      const root   = dlg.element?.[0] ?? dlg.element;
-      const select = root?.querySelector('[name="rollKind"]');
-      const skill  = root?.querySelector('.ccs-row-skill');
-      const atk    = root?.querySelector('.ccs-row-attack');
-      const update = () => {
-        const k = (select?.value || "skill").toLowerCase();
-        if (skill) skill.style.display = (k === "skill")  ? "" : "none";
-        if (atk)   atk.style.display   = (k === "attack") ? "" : "none";
-      };
-      select?.addEventListener("change", update);
-      update();
-    } catch (_) {}
-
-    return;
-  }
+  wireDialogVisibility(dlg);
 }
