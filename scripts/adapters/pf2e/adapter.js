@@ -1,7 +1,7 @@
 // PF2e system adapter
 
-import { SKILL_TO_DEF, SHORT_TO_LABEL } from "../../constants.js";
-import { parseCoolTier, computeDegree, clampDegree, normalizeSkillKey } from "../../logic.js";
+import { SKILL_TO_DEF } from "../../constants.js";
+import { parseCoolTier, computeDegree, clampDegree, normalizeSkillKey, buildRollLabel } from "../../logic.js";
 import { chooseRiderDialog } from "../../ui/dialogs.js";
 import { actorHasWeaknesses, applyActorWeaknessesPF2e } from "../../weakness/index.js";
 import { getLevelBasedDC, getDefenseDC } from "./dc.js";
@@ -23,17 +23,7 @@ export class PF2eAdapter {
 
     return {
       actor, target, rollKind, rollKey,
-      rollLabel: (() => {
-        try {
-          const skills = actor?.system?.skills ?? actor?.skills ?? {};
-          const key = normalizeSkillKey(rollKey);
-          const k2  = String(rollKey ?? "").toLowerCase();
-          const sk  = skills?.[key] ?? skills?.[k2];
-          return sk?.label ?? sk?.name ?? SHORT_TO_LABEL[key] ?? (SHORT_TO_LABEL[k2] ?? "Skill");
-        } catch {
-          return "Skill";
-        }
-      })(),
+      rollLabel: buildRollLabel(actor, rollKey),
       stat: this.pickStatistic(actor, rollKind, rollKey),
       dc,
       rollTwice: null,

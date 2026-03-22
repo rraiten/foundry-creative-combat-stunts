@@ -1,24 +1,13 @@
 import { MODULE_ID, FLAGS } from "../constants.js";
 import { getSpellAttackModPF2 as _getSpellAttackModPF2 } from "../adapters/pf2e/dc.js";
 import { openSimpleDialogV2 } from "./dialogs.js";
-import { buildStuntConfig } from "../logic.js";
+import { buildStuntConfig, getFlavorOptionsForSystem } from "../logic.js";
 
 const isPF2 = () => (game?.system?.id ?? game.systemId ?? "") === "pf2e";
 
 let _stuntDialogInstance = null;
 
-export const getFlavorOptions = () =>
-  (isPF2()
-    ? [
-        { value: 0, label: "Plain" },
-        { value: 1, label: "Nice or Repeating (+1 circumstance)" },
-        { value: 2, label: "So Cool (+2 circumstance)" },
-      ]
-    : [
-        { value: 0, label: "Plain" },
-        { value: 1, label: "Nice or Repeating (Advantage)" },
-        { value: 2, label: "So Cool (Advantage +2)" },
-      ]);
+export const getFlavorOptions = () => getFlavorOptionsForSystem(isPF2());
 
 export function getSkillChoices(actor, sysId) {
   let dict = null;

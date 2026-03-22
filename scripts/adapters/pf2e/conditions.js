@@ -1,7 +1,7 @@
 // PF2e condition and effect application
 
 import { applyEffectItem } from "../../core.js";
-import { parseEntry } from "../../logic.js";
+import { parseEntry, buildTriggerRules } from "../../logic.js";
 
 export async function applyConfiguredEffect(actor, entry, isSuccess) {
   const parsed = parseEntry(entry);
@@ -15,34 +15,11 @@ export async function applyConfiguredEffect(actor, entry, isSuccess) {
 
 export async function applyTriggerEffect(target, trigger, degree) {
   if (!trigger || !target) return;
-  const eff = trigger.effect || {};
-  const rounds = eff.durationRounds ?? 1;
-  const rules = [];
 
-  const applyList = [...(Array.isArray(eff.apply) ? eff.apply : [])];
-  if (degree === 3 && Array.isArray(eff.critApply)) applyList.push(...eff.critApply);
+  const { rules, conditionsToApply, rounds } = buildTriggerRules(trigger.effect, degree, trigger.label);
 
-  for (const ap of applyList) {
-    if (ap.type === "condition") {
-      await applyCondition(target, ap.value, ap.amount ?? null);
-    } else if (ap.type === "off-guard" && ap.value) {
-      await applyCondition(target, "off-guard");
-    } else if (ap.type === "acMod") {
-      const modType = ap.modType || "circumstance";
-      rules.push({ key: "FlatModifier", selector: "ac", type: modType, value: ap.value ?? -2, label: trigger.label || "CCS Trigger" });
-    } else if (ap.type === "saveMods") {
-      const v = Number(ap.value) || 0;
-      const modType = ap.modType || "circumstance";
-      for (const sel of ["fortitude", "reflex", "will"]) {
-        rules.push({ key: "FlatModifier", selector: sel, type: modType, value: v, label: trigger.label || "CCS Trigger" });
-      }
-    } else if (ap.type === "removeReaction") {
-      rules.push({ key: "Note", selector: "all", text: `No reactions: ${ap.value}`, title: "CCS" });
-    } else if (ap.type === "suppressResistance") {
-      rules.push({ key: "Note", selector: "all", text: "Resistances suppressed (CCS)", title: "CCS" });
-    } else if (ap.type === "note") {
-      rules.push({ key: "Note", selector: "all", text: ap.value, title: "CCS" });
-    }
+  for (const c of conditionsToApply) {
+    await applyCondition(target, c.slug, c.value);
   }
 
   if (rules.length) {

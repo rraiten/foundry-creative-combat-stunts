@@ -1,7 +1,7 @@
 // PF2e strike rolling and d20 extraction
 
 import { MODULE_ID } from "../../constants.js";
-import { selectStrike, buildStuntModifiers } from "../../logic.js";
+import { selectStrike, buildStuntModifiers, getSkillModifier, getStrikeAttackModifier } from "../../logic.js";
 import { getSpellAttackModPF2 } from "./dc.js";
 
 // Robust kept-d20 extractor (handles kh/kl, rerolls, pools)
@@ -61,17 +61,7 @@ export function extractKeptD20(resultOrRoll) {
   return null;
 }
 
-function computeSkillMod(actor, rollKey, ctx) {
-  const skillObj = actor.system?.skills?.[rollKey] ?? actor.skills?.[rollKey] ?? null;
-  return Number(
-    skillObj?.mod ?? skillObj?.totalModifier ?? skillObj?.value ??
-    ctx.stat?.check?.mod ?? ctx.stat?.mod ?? 0
-  );
-}
-
-function getStrikeAttackMod(strike) {
-  return Number(strike?.totalModifier ?? strike?.attack?.totalModifier ?? strike?.mod) || 0;
-}
+// computeSkillMod and getStrikeAttackMod moved to logic.js as getSkillModifier / getStrikeAttackModifier
 
 export async function rollAsStrike(ctx) {
   const { actor, target } = ctx;
@@ -95,8 +85,8 @@ export async function rollAsStrike(ctx) {
   }
 
   // 2) Compute modifiers for context
-  const skillMod = computeSkillMod(actor, rollKey, ctx);
-  const currentAttack = getStrikeAttackMod(strike);
+  const skillMod = getSkillModifier(actor, rollKey, ctx.stat);
+  const currentAttack = getStrikeAttackModifier(strike);
   const spellAttackMod = isSpellAttack ? getSpellAttackModPF2(actor) : null;
 
   ctx._skillMod = skillMod;

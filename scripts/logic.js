@@ -1,5 +1,5 @@
 // Pure logic functions — zero FoundryVTT dependencies, fully testable.
-import { DEGREE_LABELS } from "./constants.js";
+import { DEGREE_LABELS, SHORT_TO_LABEL } from "./constants.js";
 
 /**
  * Parse a cool tier value (string or number) into a numeric tier (0, 1, 2).
@@ -286,4 +286,118 @@ export function parseEntry(entry) {
   if (t === "drop-item") return { text: "drop-item" };
   const parts = t.split(":").map(s => s.trim());
   return { slug: parts[0], value: parts[1] ? Number(parts[1]) : null };
+}
+
+/**
+ * Build a roll label from actor skill data (pure string lookup).
+ */
+export function buildRollLabel(actor, rollKey) {
+  try {
+    const skills = actor?.system?.skills ?? actor?.skills ?? {};
+    const key = normalizeSkillKey(rollKey);
+    const k2 = String(rollKey ?? "").toLowerCase();
+    const sk = skills?.[key] ?? skills?.[k2];
+    return sk?.label ?? sk?.name ?? SHORT_TO_LABEL[key] ?? (SHORT_TO_LABEL[k2] ?? "Skill");
+  } catch {
+    return "Skill";
+  }
+}
+
+/**
+ * Extract skill modifier from actor data (pure numeric extraction).
+ */
+export function getSkillModifier(actor, rollKey, fallbackStat = null) {
+  const skillObj = actor?.system?.skills?.[rollKey] ?? actor?.skills?.[rollKey] ?? null;
+  return Number(
+    skillObj?.mod ?? skillObj?.totalModifier ?? skillObj?.value ??
+    fallbackStat?.check?.mod ?? fallbackStat?.mod ?? 0
+  );
+}
+
+/**
+ * Extract strike attack modifier (pure numeric extraction).
+ */
+export function getStrikeAttackModifier(strike) {
+  return Number(strike?.totalModifier ?? strike?.attack?.totalModifier ?? strike?.mod) || 0;
+}
+
+/**
+ * Build trigger effect rules (pure data construction, no Foundry calls).
+ * Returns { rules, conditionsToApply } where conditionsToApply is an array of
+ * {slug, value} objects that need async applyCondition calls.
+ */
+export function buildTriggerRules(triggerEffect, degree, triggerLabel = "CCS Trigger") {
+  const eff = triggerEffect || {};
+  const rules = [];
+  const conditionsToApply = [];
+
+  const applyList = [...(Array.isArray(eff.apply) ? eff.apply : [])];
+  if (degree === 3 && Array.isArray(eff.critApply)) applyList.push(...eff.critApply);
+
+  for (const ap of applyList) {
+    if (ap.type === "condition") {
+      conditionsToApply.push({ slug: ap.value, value: ap.amount ?? null });
+    } else if (ap.type === "off-guard" && ap.value) {
+      conditionsToApply.push({ slug: "off-guard", value: null });
+    } else if (ap.type === "acMod") {
+      rules.push({ key: "FlatModifier", selector: "ac", type: ap.modType || "circumstance", value: ap.value ?? -2, label: triggerLabel });
+    } else if (ap.type === "saveMods") {
+      const v = Number(ap.value) || 0;
+      const modType = ap.modType || "circumstance";
+      for (const sel of ["fortitude", "reflex", "will"]) {
+        rules.push({ key: "FlatModifier", selector: sel, type: modType, value: v, label: triggerLabel });
+      }
+    } else if (ap.type === "removeReaction") {
+      rules.push({ key: "Note", selector: "all", text: `No reactions: ${ap.value}`, title: "CCS" });
+    } else if (ap.type === "suppressResistance") {
+      rules.push({ key: "Note", selector: "all", text: "Resistances suppressed (CCS)", title: "CCS" });
+    } else if (ap.type === "note") {
+      rules.push({ key: "Note", selector: "all", text: ap.value, title: "CCS" });
+    }
+  }
+
+  return { rules, conditionsToApply, rounds: eff.durationRounds ?? 1 };
+}
+
+/**
+ * Get flavor options based on system (pure data).
+ */
+export function getFlavorOptionsForSystem(isPF2) {
+  return isPF2
+    ? [
+        { value: 0, label: "Plain" },
+        { value: 1, label: "Nice or Repeating (+1 circumstance)" },
+        { value: 2, label: "So Cool (+2 circumstance)" },
+      ]
+    : [
+        { value: 0, label: "Plain" },
+        { value: 1, label: "Nice or Repeating (Advantage)" },
+        { value: 2, label: "So Cool (Advantage +2)" },
+      ];
+}
+
+/**
+ * Pure weakness effect application (degree bumps only, no async condition calls).
+ * Returns { degree, degreeBumpTexts, conditionsToApply }.
+ */
+export function computeWeaknessEffects(weaknesses, degree) {
+  const degreeBumpTexts = [];
+  const conditionsToApply = [];
+  let newDegree = degree;
+
+  for (const w of weaknesses) {
+    const eff = w.effect || {};
+    if (eff.type === "degree-bump") {
+      const bump = Number(eff.value ?? 1);
+      newDegree = clampDegree(newDegree ?? 1, bump);
+      degreeBumpTexts.push("Degree +" + bump + " (Actor Weakness)");
+    } else if (eff.type === "apply-condition") {
+      const slug = String(eff.value || "").trim();
+      if (slug) {
+        conditionsToApply.push({ slug, text: slug + " (Actor Weakness)" });
+      }
+    }
+  }
+
+  return { degree: newDegree, degreeBumpTexts, conditionsToApply };
 }
