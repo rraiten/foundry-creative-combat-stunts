@@ -154,7 +154,9 @@ export async function openStuntDialog({ token, actor } = {}) {
             triggerId: q('[name="trigger"]')?.value || null,
             defaultStrike: strikes?.[0]?.value || "",
           });
-          game.ccf.rollStunt({ actor, target, options });
+          game.ccf.rollStunt({ actor, target, options }).catch(e => {
+            console.error("CCS: rollStunt failed from dialog", e);
+          });
           return "roll";
         }
       },

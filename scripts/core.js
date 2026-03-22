@@ -1,5 +1,5 @@
 import { MODULE_ID, FLAGS } from "./constants.js";
-import { parseCoolTier, extractD20FromResult, buildChatCardData } from "./logic.js";
+import { parseCoolTier, extractD20FromResult, buildChatCardData, validatePoolSpend } from "./logic.js";
 import { canUseOncePerCombat, markUsedOncePerCombat, spendCinematicToken } from "./pool.js";
 
 export async function applyEffectItem(target, name, rounds, rules = []) {
@@ -40,54 +40,92 @@ export class CCF {
       ui.notifications?.warn(game.i18n.localize("CCS.Notify.NotPlausible"));
     }
 
-    // Once-per-combat Advantage gate
-    let advUsed = false;
+    // --- Pre-roll validation (read-only checks, no flag writes yet) ---
+
+    // Once-per-combat Advantage gate: CHECK availability but don't mark used yet
+    let advEligible = false;
     if (chooseAdvNow) {
       const ok = await canUseOncePerCombat(combat, actor.id, FLAGS.ADV_USAGE);
       if (!ok) {
         ui.notifications?.warn(game.i18n.localize("CCS.Notify.AdvantageUsed"));
         chooseAdvNow = false;
       } else {
-        await markUsedOncePerCombat(combat, actor.id, FLAGS.ADV_USAGE);
-        advUsed = true;
+        advEligible = true;
       }
     }
 
-    // Predeclare Cinematic Pool spend
-    let poolSpent = false;
+    // Pool spend: VALIDATE but don't spend yet
+    let poolEligible = false;
     if (spendPoolNow) {
-      const spend = await spendCinematicToken(combat, actor.id);
-      if (!spend.ok) {
-        ui.notifications?.warn(spend.reason || game.i18n.localize("CCS.Notify.PoolSpendFail"));
+      // Quick validation without writing flags
+      try {
+        const pool = combat?.getFlag(MODULE_ID, FLAGS.POOL);
+        const usage = combat?.getFlag(MODULE_ID, FLAGS.POOL_USAGE) || {};
+        const check = validatePoolSpend(pool, usage, actor.id);
+        if (!check.ok) {
+          ui.notifications?.warn(check.reason || game.i18n.localize("CCS.Notify.PoolSpendFail"));
+          spendPoolNow = false;
+        } else {
+          poolEligible = true;
+        }
+      } catch (_) {
         spendPoolNow = false;
-      } else {
-        poolSpent = true;
       }
     }
 
-    const ctx = await this.adapter.buildContext({actor, target, options});
-    ctx.rollKind = (options?.rollKind || ctx.rollKind || "skill").toLowerCase();
-    ctx.chooseAdvNow = chooseAdvNow;
-    ctx.tacticalRisk = !!tacticalRisk;
+    // --- Build context and roll ---
+    try {
+      const ctx = await this.adapter.buildContext({actor, target, options});
+      ctx.rollKind = (options?.rollKind || ctx.rollKind || "skill").toLowerCase();
+      ctx.chooseAdvNow = chooseAdvNow;
+      ctx.tacticalRisk = !!tacticalRisk;
 
-    // Resolve triggerId into trigger object
-    if (triggerId && target) {
-      const triggers = target.getFlag(MODULE_ID, FLAGS.TRIGGERS) || [];
-      ctx.trigger = triggers.find(t => t.id === triggerId) || null;
+      // Resolve triggerId into trigger object
+      if (triggerId && target) {
+        try {
+          const triggers = target.getFlag(MODULE_ID, FLAGS.TRIGGERS) || [];
+          ctx.trigger = triggers.find(t => t.id === triggerId) || null;
+        } catch (_) { ctx.trigger = null; }
+      }
+
+      await this.adapter.applyPreRollAdjustments(ctx, {coolTier, plausible, chooseAdvNow, tacticalRisk});
+
+      const result = await this.adapter.roll(ctx);
+      if (!result) return; // adapter already notified; stop cleanly
+
+      // --- Roll succeeded — NOW commit the flag writes ---
+
+      let advUsed = false;
+      if (advEligible) {
+        const ok = await markUsedOncePerCombat(combat, actor.id, FLAGS.ADV_USAGE);
+        if (!ok) {
+          ui.notifications?.warn(game.i18n.localize("CCS.Notify.AdvantagePermission"));
+        } else {
+          advUsed = true;
+        }
+      }
+
+      let poolSpent = false;
+      if (poolEligible) {
+        const spend = await spendCinematicToken(combat, actor.id);
+        if (!spend.ok) {
+          ui.notifications?.warn(spend.reason || game.i18n.localize("CCS.Notify.PoolSpendFail"));
+        } else {
+          poolSpent = true;
+        }
+      }
+
+      let degree = await this.adapter.degreeOfSuccess(result, ctx);
+      degree = await this.adapter.applyCinematicUpgrade(degree, ctx, {poolSpent});
+      degree = await this.adapter.applyTacticalUpgrade(degree, ctx);
+
+      const applied = await this.adapter.applyOutcome({actor, target, ctx, degree, tacticalRisk});
+
+      await this.postChat({actor, target, ctx, result, applied, degree, poolSpent, advUsed});
+    } catch (e) {
+      console.error("CCS: rollStunt failed", e);
+      ui.notifications?.error(game.i18n.localize("CCS.Notify.RollFailed"));
     }
-
-    await this.adapter.applyPreRollAdjustments(ctx, {coolTier, plausible, chooseAdvNow, tacticalRisk});
-
-    const result = await this.adapter.roll(ctx);
-    if (!result) return;
-    let degree = await this.adapter.degreeOfSuccess(result, ctx);
-
-    degree = await this.adapter.applyCinematicUpgrade(degree, ctx, {poolSpent});
-    degree = await this.adapter.applyTacticalUpgrade(degree, ctx);
-
-    const applied = await this.adapter.applyOutcome({actor, target, ctx, degree, tacticalRisk});
-
-    await this.postChat({actor, target, ctx, result, applied, degree, poolSpent, advUsed: chooseAdvNow});
   }
 
   async postChat({actor, target, ctx, result, applied, degree, poolSpent, advUsed}){

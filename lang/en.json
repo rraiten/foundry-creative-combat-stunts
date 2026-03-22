@@ -18,6 +18,8 @@
   "CCS.Notify.OffBalance": "{target} is thrown off-balance (CCS).",
   "CCS.Notify.FallProne": "{actor} stumbles and falls prone (CCS).",
   "CCS.Notify.PoolEnabled": "Cinematic Pool enabled ({remaining}/{size}).",
+  "CCS.Notify.AdvantagePermission": "Could not mark advantage as used — you may lack combat permissions.",
+  "CCS.Notify.RollFailed": "Creative Combat Stunts: The stunt roll encountered an error.",
 
   "CCS.Setting.Pf2eAdvantageOnce.Name": "PF2e: Allow once-per-combat Advantage instead of +2",
   "CCS.Setting.Pf2eAdvantageOnce.Hint": "PF2e only. Players may declare roll-twice-keep-higher once per combat instead of a +2 Cool bonus.",
