@@ -1,5 +1,6 @@
 // systems/dnd5e/dnd5e.js
-import { compute5eDegree, clampDegree } from "../logic.js";
+import { compute5eDegree, clampDegree, buildRollLabel } from "../logic.js";
+import { extractKeptD20 } from "./pf2e/rolling.js";
 
 export class DnD5eAdapter {
   async buildContext({ actor, target, options }) {
@@ -18,6 +19,7 @@ export class DnD5eAdapter {
       target,
       rollKind,
       rollKey,
+      rollLabel: buildRollLabel(actor, rollKey),
       dc,
       rollMode: "normal",
       rollTwice: null,
@@ -70,23 +72,29 @@ export class DnD5eAdapter {
 
     const baseTotal = Number(roll?.total ?? 0);
     const riskPenalty = ctx.tacticalRisk ? -2 : 0;
-    const total = baseTotal + Number(ctx.coolBonus ?? 0) + riskPenalty;
+    const challengeAdj = Number(ctx.challengeAdj ?? 0);
+    const total = baseTotal + Number(ctx.coolBonus ?? 0) + riskPenalty + challengeAdj;
     let formula = roll?.formula ?? "d20";
     if (ctx.coolBonus) formula += ` + ${ctx.coolBonus} (Cool)`;
     if (riskPenalty) formula += ` - 2 (Risk)`;
+    if (challengeAdj > 0) formula += ` + ${challengeAdj} (Challenge)`;
+    if (challengeAdj < 0) formula += ` - ${Math.abs(challengeAdj)} (Challenge)`;
 
-    // Set skill mod for display math (parallel to PF2e adapter)
+    // Set skill mod for display math
     const skillObj = actor?.system?.skills?.[skill];
     ctx._skillMod = Number(skillObj?.total ?? skillObj?.mod ?? 0);
     ctx._attackMod = 0;
 
-    return { total, formula, roll };
+    // Extract kept d20 for advantage/disadvantage handling
+    const d20 = extractKeptD20({ roll }) ?? Number(roll?.dice?.find?.(d => d.faces === 20)?.results?.[0]?.result ?? NaN);
+
+    return { total, formula, roll, _ccsD20: Number.isFinite(d20) ? d20 : undefined };
   }
 
   async degreeOfSuccess(result, ctx) {
     if (!result) return null;
-    const d20 = result?.roll?.dice?.find?.(d => d.faces === 20);
-    const nat = Number(d20?.results?.[0]?.result ?? NaN);
+    // Use extractKeptD20 for proper advantage/disadvantage d20 extraction
+    const nat = Number(result?._ccsD20 ?? extractKeptD20(result) ?? NaN);
     const dc = Number(ctx?.dc ?? 12);
     return compute5eDegree(result.total, dc, nat);
   }
