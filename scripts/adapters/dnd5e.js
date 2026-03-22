@@ -85,13 +85,13 @@ export class DnD5eAdapter {
   async applyTacticalUpgrade(degree) { return degree; }
 
   async applyOutcome({ actor, target, ctx, degree, tacticalRisk }) {
-    if (!tacticalRisk) return null;
+    if (!tacticalRisk) return { degree };
     if (degree >= 2) {
       ui.notifications?.info(game.i18n.format("CCS.Notify.OffBalance", { target: target?.name ?? "Target" }));
-      return { targetEffect: "Off-balance (CCS)" };
+      return { targetEffect: "Off-balance (CCS)", degree };
     } else {
       ui.notifications?.warn(game.i18n.format("CCS.Notify.FallProne", { actor: actor?.name ?? "Actor" }));
-      return { selfEffect: "Prone (CCS)" };
+      return { selfEffect: "Prone (CCS)", degree };
     }
   }
 }

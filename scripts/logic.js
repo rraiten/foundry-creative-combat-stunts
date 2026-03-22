@@ -65,7 +65,7 @@ export function buildStuntConfig({ coolStr, rollKindStr, strikeKey, rollKey, ris
     chooseAdvNow,
     spendPoolNow: !!spendPool,
     triggerId: triggerId || null,
-    challengeAdj: Number(challengeAdj ?? 0),
+    challengeAdj: Number(challengeAdj) || 0,
   };
 }
 
@@ -89,7 +89,8 @@ export function computeDisplayMath({ d20, skillMod, attackMod, coolBonus, tactic
  */
 export function validatePoolSpend(pool, usage, actorId) {
   if (!pool?.enabled) return { ok: false, reason: "Pool disabled" };
-  if ((pool.remaining ?? 0) <= 0) return { ok: false, reason: "No tokens left" };
+  const remaining = Number(pool.remaining ?? 0);
+  if (!Number.isFinite(remaining) || remaining <= 0) return { ok: false, reason: "No tokens left" };
   if (usage?.[actorId]) return { ok: false, reason: "Already used this encounter" };
   return { ok: true, reason: null };
 }
@@ -181,7 +182,7 @@ export function buildStuntModifiers({ skillMod, currentAttack, spellAttackMod, r
   }
 
   // Challenge adjustment
-  const challenge = Number(challengeAdj ?? 0);
+  const challenge = Number(challengeAdj) || 0;
   if (challenge !== 0) {
     const tag = challenge > 0
       ? (challenge === 4 ? "major weakness" : "weakness")

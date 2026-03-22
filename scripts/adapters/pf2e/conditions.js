@@ -19,7 +19,7 @@ export async function applyTriggerEffect(target, trigger, degree) {
   const rounds = eff.durationRounds ?? 1;
   const rules = [];
 
-  const applyList = [...(eff.apply || [])];
+  const applyList = [...(Array.isArray(eff.apply) ? eff.apply : [])];
   if (degree === 3 && Array.isArray(eff.critApply)) applyList.push(...eff.critApply);
 
   for (const ap of applyList) {

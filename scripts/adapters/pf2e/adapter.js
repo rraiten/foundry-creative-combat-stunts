@@ -75,10 +75,10 @@ export class PF2eAdapter {
   async applyOutcome({ actor, target, ctx, degree, tacticalRisk }) {
     const isCrit = tacticalRisk && (degree === 0 || degree === 3);
     if (isCrit) {
-      return { applied: "draw from deck", crit: degree === 3 ? "critical-success" : "critical-failure" };
+      return { applied: "draw from deck", crit: degree === 3 ? "critical-success" : "critical-failure", degree };
     }
 
-    if (!tacticalRisk) return null;
+    if (!tacticalRisk) return { degree };
 
     let weakTexts = [];
 
@@ -90,7 +90,7 @@ export class PF2eAdapter {
           degree = wr.degree;
           weakTexts = wr.texts;
         }
-        return { targetEffect: [ctx.trigger.label, ...weakTexts].filter(Boolean) };
+        return { targetEffect: [ctx.trigger.label, ...weakTexts].filter(Boolean), degree };
       }
 
       const rider = await chooseRiderDialog("success");
@@ -101,7 +101,7 @@ export class PF2eAdapter {
           degree = wr.degree;
           weakTexts = wr.texts;
         }
-        return { targetEffect: [rider, ...weakTexts].filter(Boolean) };
+        return { targetEffect: [rider, ...weakTexts].filter(Boolean), degree };
       }
 
       await applyCondition(target, "off-guard");
@@ -110,15 +110,15 @@ export class PF2eAdapter {
         degree = wr.degree;
         weakTexts = wr.texts;
       }
-      return { targetEffect: ["off-guard (default)", ...weakTexts].filter(Boolean) };
+      return { targetEffect: ["off-guard (default)", ...weakTexts].filter(Boolean), degree };
     } else {
       const rider = await chooseRiderDialog("failure");
       if (rider) {
         await applyConfiguredEffect(actor, rider, false);
-        return { selfEffect: rider };
+        return { selfEffect: rider, degree };
       }
       await applyCondition(actor, "prone");
-      return { selfEffect: "prone (default)" };
+      return { selfEffect: "prone (default)", degree };
     }
   }
 

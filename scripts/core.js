@@ -31,6 +31,10 @@ export class CCF {
   isPF2 = () => (game?.system?.id ?? game.systemId ?? "") === "pf2e";
 
   async rollStunt({actor, target, options}){
+    if (!this.adapter) {
+      ui.notifications?.error(game.i18n.localize("CCS.Notify.UnsupportedSystem"));
+      return;
+    }
     let { coolTier, tacticalRisk, plausible, chooseAdvNow, spendPoolNow, triggerId } = options;
     const combat = game.combat;
 
@@ -120,8 +124,10 @@ export class CCF {
       degree = await this.adapter.applyTacticalUpgrade(degree, ctx);
 
       const applied = await this.adapter.applyOutcome({actor, target, ctx, degree, tacticalRisk});
+      // Use the degree returned by applyOutcome if weakness/trigger bumped it
+      const finalDegree = applied?.degree ?? degree;
 
-      await this.postChat({actor, target, ctx, result, applied, degree, poolSpent, advUsed});
+      await this.postChat({actor, target, ctx, result, applied, degree: finalDegree, poolSpent, advUsed});
     } catch (e) {
       console.error("CCS: rollStunt failed", e);
       ui.notifications?.error(game.i18n.localize("CCS.Notify.RollFailed"));
