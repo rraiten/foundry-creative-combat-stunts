@@ -78,7 +78,10 @@ export class DnD5eAdapter {
     return result.total >= dc ? 2 : 1;
   }
 
-  async applyCinematicUpgrade(degree) { return degree == null ? degree : Math.min(3, degree); }
+  async applyCinematicUpgrade(degree, ctx, { poolSpent } = {}) {
+    if (!poolSpent || degree == null) return degree;
+    return Math.min(3, degree + 1);
+  }
   async applyTacticalUpgrade(degree) { return degree; }
 
   async applyOutcome({ actor, target, ctx, degree, tacticalRisk }) {

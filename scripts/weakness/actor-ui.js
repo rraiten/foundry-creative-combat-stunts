@@ -1,11 +1,12 @@
 import { getActorWeaknesses, importTemplatesToActor, getWeaknessTemplates } from "./logic.js";
+import { MODULE_ID, FLAGS } from "../constants.js";
 
 export class CCSWeaknessManager extends FormApplication {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: "ccs-weakness-manager",
       title: "CCS: Actor Weaknesses",
-      template: "modules/creative-combat-stunts/templates/weakness-manager.hbs",
+      template: `modules/${MODULE_ID}/templates/weakness-manager.hbs`,
       width: 520,
       height: "auto",
       closeOnSubmit: true
@@ -49,7 +50,7 @@ export class CCSWeaknessManager extends FormApplication {
       effect: { type: "apply-condition", value: "dazzled", modifierType: "circumstance" },
       enabled: true
     });
-    await this.actor.setFlag("creative-combat-stunts", "weaknesses", list);
+    await this.actor.setFlag(MODULE_ID, FLAGS.WEAKNESSES, list);
     this.render(true);
   }
 
@@ -57,7 +58,7 @@ export class CCSWeaknessManager extends FormApplication {
     const id = ev.currentTarget?.dataset?.id;
     if (!id) return;
     const list = getActorWeaknesses(this.actor).filter(w => w.id !== id);
-    await this.actor.setFlag("creative-combat-stunts", "weaknesses", list);
+    await this.actor.setFlag(MODULE_ID, FLAGS.WEAKNESSES, list);
     this.render(true);
   }
 
@@ -68,7 +69,7 @@ export class CCSWeaknessManager extends FormApplication {
     const w = list.find(x => x.id === id);
     if (!w) return;
     w.enabled = !w.enabled;
-    await this.actor.setFlag("creative-combat-stunts", "weaknesses", list);
+    await this.actor.setFlag(MODULE_ID, FLAGS.WEAKNESSES, list);
     this.render(true);
   }
 
@@ -82,7 +83,7 @@ export class CCSWeaknessManager extends FormApplication {
     const w = list.find(x => x.id === id);
     if (!w) return;
     foundry.utils.setProperty(w, path, value);
-    await this.actor.setFlag("creative-combat-stunts", "weaknesses", list);
+    await this.actor.setFlag(MODULE_ID, FLAGS.WEAKNESSES, list);
   }
 }
 

@@ -2,24 +2,26 @@
  * Weakness logic (storage, matching, applying)
  * Flags: actor.flags["creative-combat-stunts"].weaknesses = Array<CCSWeakness>
  */
+import { MODULE_ID, FLAGS } from "../constants.js";
+
 export function getActorWeaknesses(actor) {
   if (!actor) return [];
-  return (actor.getFlag("creative-combat-stunts", "weaknesses") || []) ?? [];
+  return (actor.getFlag(MODULE_ID, FLAGS.WEAKNESSES) || []) ?? [];
 }
 export function actorHasWeaknesses(actor) {
   return getActorWeaknesses(actor).some(w => w && w.enabled);
 }
 export function getWeaknessTemplates() {
-  return game.settings.get("creative-combat-stunts", "weaknessTemplates") || [];
+  return game.settings.get(MODULE_ID, "weaknessTemplates") || [];
 }
 export async function setWeaknessTemplates(list) {
-  await game.settings.set("creative-combat-stunts", "weaknessTemplates", list ?? []);
+  await game.settings.set(MODULE_ID, "weaknessTemplates", list ?? []);
 }
 export async function importTemplatesToActor(actor, ids) {
   const tmpl = getWeaknessTemplates();
   const toAdd = tmpl.filter(t => ids.includes(t.id));
   const existing = getActorWeaknesses(actor);
-  await actor.setFlag("creative-combat-stunts","weaknesses",
+  await actor.setFlag(MODULE_ID, FLAGS.WEAKNESSES,
     [...existing, ...toAdd.map(t => ({...t, enabled: true}))]);
 }
 

@@ -1,36 +1,13 @@
 import { CCF } from "./core.js";
-import { registerUI } from "./ui.js";
-import { PF2eAdapter } from "./adapters/pf2e.js";
+import { registerUI } from "./ui/hooks.js";
+import { registerAllSettings } from "./settings.js";
+import { PF2eAdapter } from "./adapters/pf2e/adapter.js";
 import { DnD5eAdapter } from "./adapters/dnd5e.js";
-import { registerWeaknessSettings } from "./weakness/index.js";
-
+import { MODULE_ID, FLAGS, DEFAULT_POOL } from "./constants.js";
 
 Hooks.once("init", () => {
   game.ccf = new CCF();
-  // Actor Weakness Templates (global, optional)
-  registerWeaknessSettings();
-
-  // Settings (PF2e-only setting still exists harmlessly on 5e but UI hides it)
-  game.settings.register("creative-combat-stunts","pf2eAdvantageOnce",{
-    scope:"world", config:true, type:Boolean, default:true,
-    name:"PF2e: Allow once-per-combat Advantage instead of +2",
-    hint:"PF2e only. Players may declare roll-twice-keep-higher once per combat instead of a +2 Cool bonus."
-  });
-  game.settings.register("creative-combat-stunts","successRiders",{
-    scope:"world", config:true, type:String, default:"off-guard, frightened:1, prone, clumsy:1",
-    name:"Default Success Rider Menu (PF2e)",
-    hint:"PF2e only. Comma-separated PF2e conditions with optional :value."
-  });
-  game.settings.register("creative-combat-stunts","failureSetbacks",{
-    scope:"world", config:true, type:String, default:"prone, drop-item, off-guard, stunned:1",
-    name:"Default Failure Setback Menu (PF2e)",
-    hint:"PF2e only. Comma-separated entries; for conditions use PF2e slugs."
-  });
-  game.settings.register("creative-combat-stunts","critPrompt",{
-    scope:"world", config:true, type:Boolean, default:true,
-    name:"PF2e: Prompt after Crit",
-    hint:"PF2e only: after a Tactical Risk crit, prompt for Crit Deck vs rider."
-  });
+  registerAllSettings();
   registerUI();
 });
 
@@ -42,12 +19,7 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("createCombat", async (combat) => {
-  await combat.setFlag("creative-combat-stunts", "cinematicPool",
-    { enabled: false, size: 4, remaining: 4 });
-  await combat.setFlag("creative-combat-stunts", "poolUsage", {});
-  await combat.setFlag("creative-combat-stunts", "advUsage", {});
-});
-
-Hooks.on("updateCombat", (combat, changes) => {
-  game.ccf?.effects?.tick(combat, changes);
+  await combat.setFlag(MODULE_ID, FLAGS.POOL, { ...DEFAULT_POOL });
+  await combat.setFlag(MODULE_ID, FLAGS.POOL_USAGE, {});
+  await combat.setFlag(MODULE_ID, FLAGS.ADV_USAGE, {});
 });

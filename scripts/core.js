@@ -1,19 +1,43 @@
+import { MODULE_ID, DEGREE_LABELS, FLAGS } from "./constants.js";
+
+export async function applyEffectItem(target, name, rounds, rules = []) {
+  const effect = {
+    type: "effect",
+    name,
+    system: {
+      description: { value: "Creative Combat Stunts temporary effect" },
+      duration: { unit: "rounds", value: rounds },
+      start: { value: game.time.worldTime },
+      tokenIcon: { show: true },
+      rules
+    }
+  };
+  try {
+    const created = await target.createEmbeddedDocuments("Item", [effect]);
+    return created[0];
+  } catch (e) {
+    console.warn("CCS: Failed creating effect item", e);
+    ui.notifications?.warn("CCS: Could not create temporary effect item.");
+    return null;
+  }
+}
+
 export class CCF {
-  constructor(){ this.adapter = null; this.effects = new CCFEffs(); }
+  constructor(){ this.adapter = null; }
   setAdapter(adapter){ this.adapter = adapter; }
 
   isPF2 = () => (game?.system?.id ?? game.systemId ?? "") === "pf2e";
 
   async _canUseOncePerCombat(actorId, key){
     const combat = game.combat; if (!combat) return false;
-    const usage = combat.getFlag("creative-combat-stunts", key) || {};
+    const usage = combat.getFlag(MODULE_ID, key) || {};
     return !usage[actorId];
   }
   async _markUsedOncePerCombat(actorId, key){
     const combat = game.combat; if (!combat) return;
-    const usage = combat.getFlag("creative-combat-stunts", key) || {};
+    const usage = combat.getFlag(MODULE_ID, key) || {};
     usage[actorId] = true;
-    await combat.setFlag("creative-combat-stunts", key, usage);
+    await combat.setFlag(MODULE_ID, key, usage);
   }
 
   async rollStunt({actor, target, options}){
@@ -29,13 +53,13 @@ export class CCF {
     // Once-per-combat Advantage gate (PF2e only; harmless on 5e where UI hides)
     let advUsed = false;
     if (chooseAdvNow) {
-      const ok = await this._canUseOncePerCombat(actor.id, "advUsage");
+      const ok = await this._canUseOncePerCombat(actor.id, FLAGS.ADV_USAGE);
       if (!ok) {
         ui.notifications?.warn("You have already used Advantage this combat.");
         chooseAdvNow = false;
       } else {
         // lock it in for this encounter immediately (prevents double-dipping)
-        await this._markUsedOncePerCombat(actor.id, "advUsage");
+        await this._markUsedOncePerCombat(actor.id, FLAGS.ADV_USAGE);
         advUsed = true;
       }
     }
@@ -62,7 +86,7 @@ export class CCF {
 
     // Resolve triggerId (if provided) into actual trigger object from target
     if (triggerId && target) {
-      const triggers = target.getFlag("creative-combat-stunts", "weaknessTriggers") || [];
+      const triggers = target.getFlag(MODULE_ID, FLAGS.TRIGGERS) || [];
       ctx.trigger = triggers.find(t => t.id === triggerId) || null;
     }
 
@@ -88,8 +112,7 @@ export class CCF {
   }
 
   async postChat({actor, target, ctx, result, applied, degree, poolSpent, advUsed}){
-    const degrees = ["Critical Failure","Failure","Success","Critical Success"];
-    const degreeTxt = (degree != null && degrees[degree]) ? degrees[degree] : (result?.outcome || "—");
+    const degreeTxt = (degree != null && DEGREE_LABELS[degree]) ? DEGREE_LABELS[degree] : (result?.outcome || "—");
 
     // --- Normalize applied effects for clear chat output (no helper needed in HBS)
     const toText = (v) => {
@@ -136,7 +159,7 @@ export class CCF {
       && (degreeTxt === "Critical Success" || degreeTxt === "Critical Failure"))
       ? "Draw a Creative Stunt Card" : null;
 
-    const content = await foundry.applications.handlebars.renderTemplate("modules/creative-combat-stunts/templates/chat-card.hbs",{
+    const content = await foundry.applications.handlebars.renderTemplate(`modules/${MODULE_ID}/templates/chat-card.hbs`,{
       displayFormula, displayTotal, d20,  challengeText, actionName,
       actorName: actor?.name, isPF2: this.isPF2(),targetName: target?.name,
       total: displayTotal, formula: displayFormula, 
@@ -162,39 +185,15 @@ export class CCF {
 
   async spendCinematicTokenOnce(actorId){
     const combat = game.combat; if (!combat) return {ok:false, reason:"No combat"};
-    const pool = combat.getFlag("creative-combat-stunts","cinematicPool");
+    const pool = combat.getFlag(MODULE_ID, FLAGS.POOL);
     if (!pool?.enabled) return {ok:false, reason:"Pool disabled"};
     if ((pool.remaining ?? 0) <= 0) return {ok:false, reason:"No tokens left"};
-    const usage = combat.getFlag("creative-combat-stunts","poolUsage") || {};
+    const usage = combat.getFlag(MODULE_ID, FLAGS.POOL_USAGE) || {};
     if (usage[actorId]) return {ok:false, reason:"Already used this encounter"};
-    await combat.setFlag("creative-combat-stunts","cinematicPool", { ...pool, remaining: pool.remaining - 1 });
+    await combat.setFlag(MODULE_ID, FLAGS.POOL, { ...pool, remaining: pool.remaining - 1 });
     usage[actorId] = true;
-    await combat.setFlag("creative-combat-stunts","poolUsage", usage);
+    await combat.setFlag(MODULE_ID, FLAGS.POOL_USAGE, usage);
     return {ok:true};
   }
 }
 
-class CCFEffs {
-  async applyEffectItem(target, name, rounds, rules=[]){
-    const effect = {
-      type: "effect",
-      name,
-      system: {
-        description: { value: "Creative Combat Stunts temporary effect" },
-        duration: { unit: "rounds", value: rounds },
-        start: { value: game.time.worldTime },
-        tokenIcon: { show: true },
-        rules
-      }
-    };
-    try {
-      const created = await target.createEmbeddedDocuments("Item", [effect]);
-      return created[0];
-    } catch (e) {
-      console.warn("CCS: Failed creating effect item", e);
-      ui.notifications?.warn("CCS: Could not create temporary effect item.");
-      return null;
-    }
-  }
-  async tick(combat, changes){}
-}

@@ -1,0 +1,75 @@
+// Shared dialog helpers used by stunt, rider, and pool dialogs
+
+export function openSimpleDialogV2({ title, content, buttons = [] }) {
+  const D2 = foundry?.applications?.api?.DialogV2;
+  if (!D2) return null;
+
+  const btns = (buttons || [])
+    .filter(b => b && b.action && b.label)
+    .map(b => ({
+      action: b.action,
+      label:  b.label,
+      default: !!b.default,
+      callback: typeof b.callback === "function" ? b.callback : undefined
+    }));
+
+  if (btns.length === 0) {
+    btns.push({ action: "ok", label: "OK", default: true });
+  }
+
+  const dlg = new D2({
+    window: { title, resizable: false },
+    position: { width: 420 },
+    content,
+    buttons: btns,
+  });
+  dlg.render(true);
+  try { setTimeout(() => { const el = dlg?.element?.querySelector?.('[data-action="roll"],[data-button="roll"],button.primary,button.default'); el?.focus?.(); }, 10); } catch(_) {}
+  return dlg;
+}
+
+export async function chooseRiderDialog(kind = "success") {
+  if (foundry?.applications?.api?.DialogV2) {
+    return new Promise(resolve => {
+      const content = `
+        <p>Select a rider or cancel to use the default.</p>
+        <input type="text" name="rider" placeholder="e.g., prone, frightened:1, drop-item" style="width:100%"/>
+      `;
+      let dlg = null;
+      const buttons = [
+        {
+          action: "ok",
+          label: "Apply",
+          default: true,
+          callback: () => {
+            const val = dlg?.element?.querySelector?.('[name="rider"]')?.value?.trim() || null;
+            resolve(val);
+          }
+        },
+        { action: "cancel", label: "Cancel", callback: () => resolve(null) }
+      ];
+      dlg = openSimpleDialogV2({
+        title: `Choose Rider (${kind})`,
+        content,
+        buttons,
+        defaultId: "ok",
+      });
+    });
+  }
+}
+
+export async function openCritPrompt({ isFailure = false } = {}) {
+  if (foundry?.applications?.api?.DialogV2) {
+    return new Promise(resolve => {
+      openSimpleDialogV2({
+        title: isFailure ? "Critical Failure" : "Critical Success",
+        content: `<p>Pick how to resolve the critical.</p>`,
+        buttons: [
+          { action: "rider", label: "Pick Effect",  callback: () => resolve("rider") },
+          { action: "cancel", label: "Cancel",       callback: () => resolve(null)    },
+        ],
+        defaultId: "deck",
+      });
+    });
+  }
+}

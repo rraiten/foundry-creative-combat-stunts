@@ -1,11 +1,12 @@
 import { getWeaknessTemplates, setWeaknessTemplates } from "./logic.js";
+import { MODULE_ID } from "../constants.js";
 
 export class CCSWeaknessTemplatesManager extends FormApplication {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: "ccs-weakness-templates-manager",
       title: "CCS: Weakness Templates",
-      template: "modules/creative-combat-stunts/templates/weakness-templates-manager.hbs",
+      template: `modules/${MODULE_ID}/templates/weakness-templates-manager.hbs`,
       width: 600, 
       height: "auto", 
       closeOnSubmit: true

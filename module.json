@@ -25,12 +25,7 @@
     ]
   },
   "esmodules": [
-    "scripts/main.js",
-    "scripts/core.js",
-    "scripts/ui.js",
-    "scripts/adapters/pf2e.js",
-    "scripts/adapters/dnd5e.js",
-    "scripts/weakness/index.js"
+    "scripts/main.js"
   ],
   "styles": [
     "styles/ccf.css"
